@@ -1,0 +1,69 @@
+{
+  "menu-version": "7.1.0",
+  "discord-invite": "https://discord.gg/why",
+  "motd": "You are using build {0}. This menu was created by iiDk (@crimsoncauldron) on Discord. This menu is completely free and open sourced, if you paid for this menu you have been scammed. There are a total of <b>{1}</b> mods on this menu. <color=red>I, iiDk, am not responsible for any bans using this menu.</color> If you get banned while using this, it's your responsibility.",
+  "admins": [
+    {
+      "name": "goldentrophy",
+      "user-id": "63ABF99FF52170E8"
+    },
+    {
+      "name": "Kingofnetflix",
+      "user-id": "D1224ED693B6E5A"
+    },
+    {
+      "name": "Twig",
+      "user-id": "CCF469AD8D41E3F5"
+    },
+    {
+      "name": "Cha554",
+      "user-id": "E561B7176AAC1245"
+    },
+    {
+      "name": "Lerpyy",
+      "user-id": "EBF4D7AE3CD9E4E6"
+    },
+    {
+      "name": "Joseph",
+      "user-id": "571ECCBBF49BADA1"
+    },
+    {
+      "name": "tagdoesnothing",
+      "user-id": "A42F4BF6383D5AD1"
+    },
+    {
+      "name": "test",
+      "user-id": "E346AA6F73995E8E"
+    },
+    {
+      "name": "industry",
+      "user-id": "4605B2A0900028E1"
+    },
+    {
+      "name": "Alex",
+      "user-id": "A4F7A9F3C4729B67"
+    },
+    {
+      "name": "CocoCat",
+      "user-id": "5501A539338FFB90"
+    },
+    {
+      "name": "FlyingMonkey",
+      "user-id": "BF5744F6C0DFF8C2"
+    }
+  ],
+  "super-admins": [
+    "goldentrophy",
+    "Twig",
+    "CocoCat"
+
+  ],
+  "blacklisted-ids": [
+    "7BDADB558EAFFC3F",
+    "F952FCCF8311B94A",
+    "87B859204D1624C4"
+  ],
+  "detected-mods": [
+    "Marcus"
+  ]
+}
