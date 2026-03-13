@@ -2,7 +2,6 @@
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 local me = Players.LocalPlayer
 
@@ -32,66 +31,6 @@ messageLabel.TextColor3 = Color3.fromRGB(255,165,0)
 messageLabel.Text = ""
 messageLabel.Parent = bg
 
--- ===== KEY SYSTEM =====
-local correctKey = "CocoX"
-local keyEntered = false
-
-local function promptKey()
-    local keyGui = Instance.new("ScreenGui")
-    keyGui.Name = "CocoXKeyGui"
-    keyGui.ResetOnSpawn = false
-    keyGui.Parent = CoreGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 300, 0, 120)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -60)
-    frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    frame.BorderSizePixel = 0
-    frame.Parent = keyGui
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1,0,0,30)
-    label.Position = UDim2.new(0,0,0,0)
-    label.BackgroundTransparency = 1
-    label.Text = "Enter Key:"
-    label.TextColor3 = Color3.fromRGB(255,165,0)
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = 20
-    label.Parent = frame
-
-    local textbox = Instance.new("TextBox")
-    textbox.Size = UDim2.new(0.8,0,0,30)
-    textbox.Position = UDim2.new(0.1,0,0,40)
-    textbox.ClearTextOnFocus = false
-    textbox.Text = ""
-    textbox.TextColor3 = Color3.new(1,1,1)
-    textbox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    textbox.Font = Enum.Font.SourceSans
-    textbox.TextSize = 18
-    textbox.PlaceholderText = "Type your key..."
-    textbox.Parent = frame
-
-    local submitBtn = Instance.new("TextButton")
-    submitBtn.Size = UDim2.new(0.6,0,0,30)
-    submitBtn.Position = UDim2.new(0.2,0,0,80)
-    submitBtn.Text = "Submit"
-    submitBtn.TextColor3 = Color3.new(1,1,1)
-    submitBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
-    submitBtn.Font = Enum.Font.SourceSans
-    submitBtn.TextSize = 18
-    submitBtn.Parent = frame
-
-    submitBtn.MouseButton1Click:Connect(function()
-        if textbox.Text == correctKey then
-            keyEntered = true
-            keyGui:Destroy()
-        else
-            textbox.Text = ""
-            textbox.PlaceholderText = "Wrong Key!"
-        end
-    end)
-end
-
 -- ===== LOAD MESSAGES =====
 local function showLoadMessages(callback)
     messageLabel.Text = "This was made by CocoX"
@@ -107,159 +46,137 @@ local function showLoadMessages(callback)
     tween.Completed:Wait()
     
     loadScreen:Destroy()
-
-    -- Prompt for key
-    promptKey()
-    repeat wait() until keyEntered
-
     callback()
 end
 
--- ===== TELEPORT & OWNER GUI =====
+-- ===== TELEPORT GUI =====
 local function loadTeleportGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
     gui.ResetOnSpawn = false
     gui.Parent = CoreGui
 
-    local win = Instance.new("Frame")
-    win.Name = "Window"
-    win.Size = UDim2.new(0, 200, 0, 200)
-    win.Position = UDim2.new(0.5, -100, 0.5, -100)
-    win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-    win.BorderSizePixel = 0
-    win.Active = true
-    win.Draggable = true
-    win.Parent = gui
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,25)
-    title.Position = UDim2.new(0,0,0,0)
-    title.BackgroundTransparency = 1
-    title.Text = "CocoX"
-    title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 18
-    title.TextColor3 = Color3.new(1,1,1)
-    title.Parent = win
-
     local savedPos = nil
 
-    local function createButton(name, posY, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 160, 0, 30)
-        btn.Position = UDim2.new(0, 20, 0, posY)
-        btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-        btn.TextColor3 = Color3.new(1,1,1)
-        btn.Font = Enum.Font.SourceSans
-        btn.TextSize = 16
-        btn.Text = name
-        btn.Parent = win
-        btn.MouseButton1Click:Connect(callback)
-    end
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 40, 0, 40)
+    toggleBtn.Position = UDim2.new(0, 10, 0.5, -20)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(255,165,0)
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.Font = Enum.Font.SourceSansBold
+    toggleBtn.TextSize = 14
+    toggleBtn.Text = "C"
+    toggleBtn.Visible = false
+    toggleBtn.Parent = gui
 
-    -- Regular buttons
-    createButton("Save Position", 35, function()
-        local char = me.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            savedPos = char.HumanoidRootPart.Position
-            print("Position saved!")
+    -- Make toggle button draggable
+    local dragging = false
+    local dragInput, mousePos, framePos
+    toggleBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            mousePos = input.Position
+            framePos = toggleBtn.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
 
-    createButton("Teleport to Saved", 75, function()
-        local char = me.Character
-        if char and char:FindFirstChild("HumanoidRootPart") and savedPos then
-            char.HumanoidRootPart.CFrame = CFrame.new(savedPos)
-            print("Teleported!")
+    toggleBtn.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
     end)
 
-    createButton("Leave", 115, function()
-        gui:Destroy()
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - mousePos
+            toggleBtn.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
+        end
     end)
 
-    -- ===== OWNER MODS =====
-    local ownerUsername = "GusXaviere" -- Replace with your Roblox username
-    if me.Name == ownerUsername then
-        createButton("Fly Toggle", 145, function()
-            local flying = false
+    local function createMainWindow()
+        local win = Instance.new("Frame")
+        win.Name = "Window"
+        win.Size = UDim2.new(0, 200, 0, 160)
+        win.Position = UDim2.new(0.5, -100, 0.5, -80)
+        win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+        win.BorderSizePixel = 0
+        win.Active = true
+        win.Draggable = true
+        win.Parent = gui
+
+        -- Title
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1,0,0,25)
+        title.Position = UDim2.new(0,0,0,0)
+        title.BackgroundTransparency = 1
+        title.Text = "CocoX"
+        title.Font = Enum.Font.SourceSansBold
+        title.TextSize = 18
+        title.TextColor3 = Color3.new(1,1,1)
+        title.Parent = win
+
+        -- Close button (X)
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Size = UDim2.new(0, 20, 0, 20)
+        closeBtn.Position = UDim2.new(1, -25, 0, 5)
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
+        closeBtn.TextColor3 = Color3.new(1,1,1)
+        closeBtn.Font = Enum.Font.SourceSansBold
+        closeBtn.TextSize = 14
+        closeBtn.Text = "X"
+        closeBtn.Parent = win
+
+        closeBtn.MouseButton1Click:Connect(function()
+            win.Visible = false
+            toggleBtn.Visible = true
+        end)
+
+        -- Buttons
+        local function createButton(name, posY, callback)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(0, 160, 0, 30)
+            btn.Position = UDim2.new(0, 20, 0, posY)
+            btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+            btn.TextColor3 = Color3.new(1,1,1)
+            btn.Font = Enum.Font.SourceSans
+            btn.TextSize = 16
+            btn.Text = name
+            btn.Parent = win
+            btn.MouseButton1Click:Connect(callback)
+        end
+
+        createButton("Save Position", 35, function()
             local char = me.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if not hrp or not hum then return end
-
-            local bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
-            bodyVelocity.Velocity = Vector3.new(0,0,0)
-            bodyVelocity.Parent = hrp
-            flying = true
-
-            print("Fly enabled. Press again to disable.")
-            RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Camera.Value, function()
-                if flying and hrp and hum then
-                    local moveDir = Vector3.new()
-                    local cam = workspace.CurrentCamera
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
-                    bodyVelocity.Velocity = moveDir * 50
-                else
-                    bodyVelocity:Destroy()
-                    RunService:UnbindFromRenderStep("FlyControl")
-                end
-            end)
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                savedPos = char.HumanoidRootPart.Position
+                print("Position saved!")
+            end
         end)
 
-        createButton("Teleport Any Player", 180, function()
-            local inputGui = Instance.new("ScreenGui")
-            inputGui.Parent = CoreGui
+        createButton("Teleport to Saved", 75, function()
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and savedPos then
+                char.HumanoidRootPart.CFrame = CFrame.new(savedPos)
+                print("Teleported!")
+            end
+        end)
 
-            local frame = Instance.new("Frame")
-            frame.Size = UDim2.new(0, 300, 0, 120)
-            frame.Position = UDim2.new(0.5, -150, 0.5, -60)
-            frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-            frame.BorderSizePixel = 0
-            frame.Parent = inputGui
-
-            local textbox = Instance.new("TextBox")
-            textbox.Size = UDim2.new(0.8,0,0,30)
-            textbox.Position = UDim2.new(0.1,0,0,40)
-            textbox.PlaceholderText = "Player username"
-            textbox.TextColor3 = Color3.new(1,1,1)
-            textbox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-            textbox.Font = Enum.Font.SourceSans
-            textbox.TextSize = 18
-            textbox.Parent = frame
-
-            local submitBtn = Instance.new("TextButton")
-            submitBtn.Size = UDim2.new(0.6,0,0,30)
-            submitBtn.Position = UDim2.new(0.2,0,0,80)
-            submitBtn.Text = "Teleport"
-            submitBtn.TextColor3 = Color3.new(1,1,1)
-            submitBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
-            submitBtn.Font = Enum.Font.SourceSans
-            submitBtn.TextSize = 18
-            submitBtn.Parent = frame
-
-            submitBtn.MouseButton1Click:Connect(function()
-                local targetName = textbox.Text
-                local targetPlayer = Players:FindFirstChild(targetName)
-                if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    if savedPos then
-                        targetPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(savedPos)
-                        print("Teleported "..targetName.."!")
-                    else
-                        print("Save a position first!")
-                    end
-                else
-                    print("Player not found!")
-                end
-                inputGui:Destroy()
-            end)
+        createButton("Leave", 115, function()
+            me:Kick("You left the game via CocoX GUI")
         end)
     end
+
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleBtn.Visible = false
+        createMainWindow()
+    end)
+
+    createMainWindow()
 end
 
 -- Start
