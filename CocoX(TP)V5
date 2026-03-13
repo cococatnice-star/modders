@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local me = Players.LocalPlayer
 
@@ -67,6 +68,7 @@ local function promptKey()
     textbox.BackgroundColor3 = Color3.fromRGB(50,50,50)
     textbox.Font = Enum.Font.SourceSans
     textbox.TextSize = 18
+    textbox.PlaceholderText = "Type your key..."
     textbox.Parent = frame
 
     local submitBtn = Instance.new("TextButton")
@@ -113,7 +115,7 @@ local function showLoadMessages(callback)
     callback()
 end
 
--- ===== TELEPORT GUI =====
+-- ===== TELEPORT & OWNER GUI =====
 local function loadTeleportGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
@@ -122,8 +124,8 @@ local function loadTeleportGUI()
 
     local win = Instance.new("Frame")
     win.Name = "Window"
-    win.Size = UDim2.new(0, 200, 0, 140)
-    win.Position = UDim2.new(0.5, -100, 0.5, -70)
+    win.Size = UDim2.new(0, 200, 0, 200)
+    win.Position = UDim2.new(0.5, -100, 0.5, -100)
     win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
     win.BorderSizePixel = 0
     win.Active = true
@@ -155,6 +157,7 @@ local function loadTeleportGUI()
         btn.MouseButton1Click:Connect(callback)
     end
 
+    -- Regular buttons
     createButton("Save Position", 35, function()
         local char = me.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -173,8 +176,90 @@ local function loadTeleportGUI()
 
     createButton("Leave", 115, function()
         gui:Destroy()
-        print("GUI closed")
     end)
+
+    -- ===== OWNER MODS =====
+    local ownerUsername = "GusXaviere" -- Replace with your Roblox username
+    if me.Name == ownerUsername then
+        createButton("Fly Toggle", 145, function()
+            local flying = false
+            local char = me.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.MaxForce = Vector3.new(1e5,1e5,1e5)
+            bodyVelocity.Velocity = Vector3.new(0,0,0)
+            bodyVelocity.Parent = hrp
+            flying = true
+
+            print("Fly enabled. Press again to disable.")
+            RunService:BindToRenderStep("FlyControl", Enum.RenderPriority.Camera.Value, function()
+                if flying and hrp and hum then
+                    local moveDir = Vector3.new()
+                    local cam = workspace.CurrentCamera
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+                    bodyVelocity.Velocity = moveDir * 50
+                else
+                    bodyVelocity:Destroy()
+                    RunService:UnbindFromRenderStep("FlyControl")
+                end
+            end)
+        end)
+
+        createButton("Teleport Any Player", 180, function()
+            local inputGui = Instance.new("ScreenGui")
+            inputGui.Parent = CoreGui
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0, 300, 0, 120)
+            frame.Position = UDim2.new(0.5, -150, 0.5, -60)
+            frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+            frame.BorderSizePixel = 0
+            frame.Parent = inputGui
+
+            local textbox = Instance.new("TextBox")
+            textbox.Size = UDim2.new(0.8,0,0,30)
+            textbox.Position = UDim2.new(0.1,0,0,40)
+            textbox.PlaceholderText = "Player username"
+            textbox.TextColor3 = Color3.new(1,1,1)
+            textbox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+            textbox.Font = Enum.Font.SourceSans
+            textbox.TextSize = 18
+            textbox.Parent = frame
+
+            local submitBtn = Instance.new("TextButton")
+            submitBtn.Size = UDim2.new(0.6,0,0,30)
+            submitBtn.Position = UDim2.new(0.2,0,0,80)
+            submitBtn.Text = "Teleport"
+            submitBtn.TextColor3 = Color3.new(1,1,1)
+            submitBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            submitBtn.Font = Enum.Font.SourceSans
+            submitBtn.TextSize = 18
+            submitBtn.Parent = frame
+
+            submitBtn.MouseButton1Click:Connect(function()
+                local targetName = textbox.Text
+                local targetPlayer = Players:FindFirstChild(targetName)
+                if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    if savedPos then
+                        targetPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(savedPos)
+                        print("Teleported "..targetName.."!")
+                    else
+                        print("Save a position first!")
+                    end
+                else
+                    print("Player not found!")
+                end
+                inputGui:Destroy()
+            end)
+        end)
+    end
 end
 
 -- Start
