@@ -8,38 +8,36 @@ local me = Players.LocalPlayer
 -- ===== FULL BLACK LOAD SCREEN =====
 local loadScreen = Instance.new("ScreenGui")
 loadScreen.Name = "CocoXLoadScreen"
-loadScreen.DisplayOrder = 9999 -- ensure it's on top of everything
+loadScreen.DisplayOrder = 9999
 loadScreen.IgnoreGuiInset = true
 loadScreen.ResetOnSpawn = false
 loadScreen.Parent = CoreGui
 
 local bg = Instance.new("Frame")
-bg.Size = UDim2.new(1,0,1,0) -- full screen
+bg.Size = UDim2.new(1,0,1,0)
 bg.Position = UDim2.new(0,0,0,0)
-bg.BackgroundColor3 = Color3.new(0,0,0) -- full black
+bg.BackgroundColor3 = Color3.new(0,0,0)
 bg.BorderSizePixel = 0
-bg.BackgroundTransparency = 0 -- no transparency
+bg.BackgroundTransparency = 0
 bg.Parent = loadScreen
 
 local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1,0,0,100)
+messageLabel.Size = UDim2.new(1,0,0,60)
 messageLabel.Position = UDim2.new(0,0,0.45,0)
 messageLabel.BackgroundTransparency = 1
 messageLabel.Font = Enum.Font.SourceSansBold
-messageLabel.TextSize = 36
+messageLabel.TextSize = 24
 messageLabel.TextColor3 = Color3.fromRGB(255,165,0)
 messageLabel.Text = ""
 messageLabel.Parent = bg
 
--- Function to show messages
 local function showLoadMessages(callback)
     messageLabel.Text = "This was made by CocoX"
     wait(2)
     messageLabel.Text = "I hope you have fun"
     wait(2)
 
-    -- Fade out
-    local tweenInfo = TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local tween = TweenService:Create(bg, tweenInfo, {BackgroundTransparency = 1})
     local textTween = TweenService:Create(messageLabel, tweenInfo, {TextTransparency = 1})
     tween:Play()
@@ -50,7 +48,7 @@ local function showLoadMessages(callback)
     callback()
 end
 
--- ===== TELEPORT GUI =====
+-- ===== SMALL TELEPORT GUI =====
 local function loadTeleportGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
@@ -59,22 +57,21 @@ local function loadTeleportGUI()
 
     local win = Instance.new("Frame")
     win.Name = "Window"
-    win.Size = UDim2.new(0, 300, 0, 200)
-    win.Position = UDim2.new(0.5, -150, 0.5, -100)
+    win.Size = UDim2.new(0, 200, 0, 120) -- smaller size
+    win.Position = UDim2.new(0.5, -100, 0.5, -60)
     win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
     win.BorderSizePixel = 0
     win.Active = true
     win.Draggable = true
     win.Parent = gui
 
-    -- Title
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1,0,0,30)
+    title.Size = UDim2.new(1,0,0,25)
     title.Position = UDim2.new(0,0,0,0)
     title.BackgroundTransparency = 1
     title.Text = "CocoX"
     title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 20
+    title.TextSize = 18
     title.TextColor3 = Color3.new(1,1,1)
     title.Parent = win
 
@@ -82,19 +79,18 @@ local function loadTeleportGUI()
 
     local function createButton(name, posY, callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 260, 0, 40)
+        btn.Size = UDim2.new(0, 160, 0, 30)
         btn.Position = UDim2.new(0, 20, 0, posY)
         btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
         btn.TextColor3 = Color3.new(1,1,1)
         btn.Font = Enum.Font.SourceSans
-        btn.TextSize = 18
+        btn.TextSize = 16
         btn.Text = name
         btn.Parent = win
         btn.MouseButton1Click:Connect(callback)
     end
 
-    -- Save Position Button
-    createButton("Save Position", 50, function()
+    createButton("Save Position", 35, function()
         local char = me.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
             savedPos = char.HumanoidRootPart.Position
@@ -102,8 +98,7 @@ local function loadTeleportGUI()
         end
     end)
 
-    -- Teleport Button
-    createButton("Teleport to Saved", 110, function()
+    createButton("Teleport to Saved", 75, function()
         local char = me.Character
         if char and char:FindFirstChild("HumanoidRootPart") and savedPos then
             char.HumanoidRootPart.CFrame = CFrame.new(savedPos)
