@@ -1,0 +1,94 @@
+local player = game.Players.LocalPlayer
+local savedPosition = nil
+
+-- Functions
+local function getSpawnPosition()
+    local spawn = workspace:FindFirstChild("SpawnLocation")
+    if spawn then return spawn.Position + Vector3.new(0,3,0) end
+    return Vector3.new(0,5,0)
+end
+
+local function getMyBasePosition()
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return Vector3.new(0,5,0) end
+    for _, plot in pairs(plots:GetChildren()) do
+        if plot:IsA("Model") then
+            local basePart = plot:FindFirstChild("Base")
+            if basePart then
+                return basePart:GetPivot().Position + Vector3.new(0,3,0)
+            end
+        end
+    end
+    return Vector3.new(0,5,0)
+end
+
+local function teleportTo(pos)
+    local char = player.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = CFrame.new(pos) end
+    end
+end
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CocoX"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Parent = ScreenGui
+Frame.Size = UDim2.new(0,200,0,180)
+Frame.Position = UDim2.new(0.5,-100,0.5,-90)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Active = true
+Frame.Draggable = true
+Frame.ClipsDescendants = true
+Frame.BorderSizePixel = 0
+
+-- Title Label
+local Title = Instance.new("TextLabel")
+Title.Parent = Frame
+Title.Size = UDim2.new(1,0,0,30)
+Title.Position = UDim2.new(0,0,0,0)
+Title.BackgroundColor3 = Color3.fromRGB(40,40,40)
+Title.Text = "CocoX"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 18
+Title.BorderSizePixel = 0
+
+-- Button creation function
+local function createButton(text, posY, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = Frame
+    btn.Size = UDim2.new(0,180,0,30)
+    btn.Position = UDim2.new(0.5,-90,0,posY)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = true
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- Buttons
+createButton("Return to Spawn", 40, function() teleportTo(getSpawnPosition()) end)
+createButton("Teleport to Base", 75, function() teleportTo(getMyBasePosition()) end)
+createButton("Save Position", 110, function()
+    local char = player.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            savedPosition = hrp.Position
+            print("Position saved!")
+        end
+    end
+end)
+createButton("Teleport to Saved", 145, function()
+    if savedPosition then
+        teleportTo(savedPosition)
+    else
+        print("No position saved!")
+    end
+end)
