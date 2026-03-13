@@ -32,7 +32,7 @@ messageLabel.Text = ""
 messageLabel.Parent = bg
 
 -- ===== KEY SYSTEM =====
-local correctKey = "CocoX" -- <-- Set your key here
+local correctKey = "CocoX"
 local keyEntered = false
 
 local function promptKey()
@@ -108,13 +108,12 @@ local function showLoadMessages(callback)
 
     -- Prompt for key
     promptKey()
-    -- Wait until the correct key is entered
     repeat wait() until keyEntered
 
     callback()
 end
 
--- ===== SMALL TELEPORT GUI =====
+-- ===== TELEPORT GUI =====
 local function loadTeleportGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
@@ -123,8 +122,8 @@ local function loadTeleportGUI()
 
     local win = Instance.new("Frame")
     win.Name = "Window"
-    win.Size = UDim2.new(0, 200, 0, 150)
-    win.Position = UDim2.new(0.5, -100, 0.5, -75)
+    win.Size = UDim2.new(0, 200, 0, 160)
+    win.Position = UDim2.new(0.5, -100, 0.5, -80)
     win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
     win.BorderSizePixel = 0
     win.Active = true
@@ -172,10 +171,25 @@ local function loadTeleportGUI()
         end
     end)
 
-    createButton("Leave Game", 115, function()
-        me:Kick("You left the game via CocoX GUI")
+    createButton("Invisible", 115, function()
+        local char = me.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.Transparency = 1
+                    part.CanCollide = false
+                elseif part:IsA("Decal") then
+                    part.Transparency = 1
+                end
+            end
+        end
+    end)
+
+    createButton("Leave", 145, function()
+        gui:Destroy()
+        print("GUI closed")
     end)
 end
 
--- Start load screen
+-- Start
 showLoadMessages(loadTeleportGUI)
