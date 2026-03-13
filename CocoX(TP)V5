@@ -122,8 +122,8 @@ local function loadTeleportGUI()
 
     local win = Instance.new("Frame")
     win.Name = "Window"
-    win.Size = UDim2.new(0, 200, 0, 160)
-    win.Position = UDim2.new(0.5, -100, 0.5, -80)
+    win.Size = UDim2.new(0, 200, 0, 140)
+    win.Position = UDim2.new(0.5, -100, 0.5, -70)
     win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
     win.BorderSizePixel = 0
     win.Active = true
@@ -171,21 +171,7 @@ local function loadTeleportGUI()
         end
     end)
 
-    createButton("Invisible", 115, function()
-        local char = me.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.Transparency = 1
-                    part.CanCollide = false
-                elseif part:IsA("Decal") then
-                    part.Transparency = 1
-                end
-            end
-        end
-    end)
-
-    createButton("Leave", 145, function()
+    createButton("Leave", 115, function()
         gui:Destroy()
         print("GUI closed")
     end)
