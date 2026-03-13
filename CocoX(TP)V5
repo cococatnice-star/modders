@@ -31,6 +31,66 @@ messageLabel.TextColor3 = Color3.fromRGB(255,165,0)
 messageLabel.Text = ""
 messageLabel.Parent = bg
 
+-- ===== KEY SYSTEM =====
+local correctKey = "CocoX" -- <-- Set your key here
+local keyEntered = false
+
+local function promptKey()
+    local keyGui = Instance.new("ScreenGui")
+    keyGui.Name = "CocoXKeyGui"
+    keyGui.ResetOnSpawn = false
+    keyGui.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 120)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -60)
+    frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    frame.BorderSizePixel = 0
+    frame.Parent = keyGui
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,0,0,30)
+    label.Position = UDim2.new(0,0,0,0)
+    label.BackgroundTransparency = 1
+    label.Text = "Enter Key:"
+    label.TextColor3 = Color3.fromRGB(255,165,0)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 20
+    label.Parent = frame
+
+    local textbox = Instance.new("TextBox")
+    textbox.Size = UDim2.new(0.8,0,0,30)
+    textbox.Position = UDim2.new(0.1,0,0,40)
+    textbox.ClearTextOnFocus = false
+    textbox.Text = ""
+    textbox.TextColor3 = Color3.new(1,1,1)
+    textbox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    textbox.Font = Enum.Font.SourceSans
+    textbox.TextSize = 18
+    textbox.Parent = frame
+
+    local submitBtn = Instance.new("TextButton")
+    submitBtn.Size = UDim2.new(0.6,0,0,30)
+    submitBtn.Position = UDim2.new(0.2,0,0,80)
+    submitBtn.Text = "Submit"
+    submitBtn.TextColor3 = Color3.new(1,1,1)
+    submitBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+    submitBtn.Font = Enum.Font.SourceSans
+    submitBtn.TextSize = 18
+    submitBtn.Parent = frame
+
+    submitBtn.MouseButton1Click:Connect(function()
+        if textbox.Text == correctKey then
+            keyEntered = true
+            keyGui:Destroy()
+        else
+            textbox.Text = ""
+            textbox.PlaceholderText = "Wrong Key!"
+        end
+    end)
+end
+
+-- ===== LOAD MESSAGES =====
 local function showLoadMessages(callback)
     messageLabel.Text = "This was made by CocoX"
     wait(2)
@@ -45,6 +105,12 @@ local function showLoadMessages(callback)
     tween.Completed:Wait()
     
     loadScreen:Destroy()
+
+    -- Prompt for key
+    promptKey()
+    -- Wait until the correct key is entered
+    repeat wait() until keyEntered
+
     callback()
 end
 
@@ -57,7 +123,7 @@ local function loadTeleportGUI()
 
     local win = Instance.new("Frame")
     win.Name = "Window"
-    win.Size = UDim2.new(0, 200, 0, 120) -- smaller size
+    win.Size = UDim2.new(0, 200, 0, 120)
     win.Position = UDim2.new(0.5, -100, 0.5, -60)
     win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
     win.BorderSizePixel = 0
