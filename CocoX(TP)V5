@@ -33,11 +33,19 @@ messageLabel.Parent = bg
 
 -- ===== LOAD MESSAGES =====
 local function showLoadMessages(callback)
+    -- Page 1
     messageLabel.Text = "This was made by CocoX"
     wait(2)
+    
+    -- Page 2
     messageLabel.Text = "I hope you have fun"
     wait(2)
+    
+    -- Page 3
+    messageLabel.Text = "Version 9"
+    wait(4)
 
+    -- Fade out
     local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local tween = TweenService:Create(bg, tweenInfo, {BackgroundTransparency = 1})
     local textTween = TweenService:Create(messageLabel, tweenInfo, {TextTransparency = 1})
@@ -48,6 +56,7 @@ local function showLoadMessages(callback)
     loadScreen:Destroy()
     callback()
 end
+
 
 -- ===== TELEPORT GUI =====
 local function loadTeleportGUI()
