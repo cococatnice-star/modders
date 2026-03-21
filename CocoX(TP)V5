@@ -2,191 +2,250 @@
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
 
 local me = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
--- ===== FULL BLACK LOAD SCREEN =====
-local loadScreen = Instance.new("ScreenGui")
-loadScreen.Name = "CocoXLoadScreen"
-loadScreen.DisplayOrder = 9999
-loadScreen.IgnoreGuiInset = true
-loadScreen.ResetOnSpawn = false
-loadScreen.Parent = CoreGui
+-- ===== FULL BLACK LOADING SCREEN =====
+local originalAmbient = Lighting.Ambient
+local originalOutdoor = Lighting.OutdoorAmbient
+
+Lighting.Ambient = Color3.new(0,0,0)
+Lighting.OutdoorAmbient = Color3.new(0,0,0)
+
+local blackGui = Instance.new("ScreenGui")
+blackGui.Name = "CocoXBlackScreen"
+blackGui.DisplayOrder = 9999
+blackGui.IgnoreGuiInset = true
+blackGui.Parent = CoreGui
 
 local bg = Instance.new("Frame")
-bg.Size = UDim2.new(1,0,1,0)
+bg.Size = UDim2.new(0, camera.ViewportSize.X, 0, camera.ViewportSize.Y)
 bg.Position = UDim2.new(0,0,0,0)
 bg.BackgroundColor3 = Color3.new(0,0,0)
 bg.BorderSizePixel = 0
-bg.BackgroundTransparency = 0
-bg.Parent = loadScreen
+bg.Parent = blackGui
 
-local messageLabel = Instance.new("TextLabel")
-messageLabel.Size = UDim2.new(1,0,0,60)
-messageLabel.Position = UDim2.new(0,0,0.45,0)
-messageLabel.BackgroundTransparency = 1
-messageLabel.Font = Enum.Font.SourceSansBold
-messageLabel.TextSize = 24
-messageLabel.TextColor3 = Color3.fromRGB(255,165,0)
-messageLabel.Text = ""
-messageLabel.Parent = bg
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    bg.Size = UDim2.new(0, camera.ViewportSize.X, 0, camera.ViewportSize.Y)
+end)
 
--- ===== LOAD MESSAGES =====
-local function showLoadMessages(callback)
-    -- Page 1
-    messageLabel.Text = "This was made by CocoX"
-    wait(2)
-    
-    -- Page 2
-    messageLabel.Text = "I hope you have fun"
-    wait(2)
-    
-    -- Page 3
-    messageLabel.Text = "Version 9"
-    wait(4)
+local text = Instance.new("TextLabel")
+text.Size = UDim2.new(1,0,0,60)
+text.Position = UDim2.new(0,0,0.5,-30)
+text.BackgroundTransparency = 1
+text.TextColor3 = Color3.fromRGB(255,165,0)
+text.Font = Enum.Font.SourceSansBold
+text.TextScaled = true
+text.TextWrapped = true
+text.Text = "Loading..."
+text.Parent = bg
 
-    -- Fade out
-    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(bg, tweenInfo, {BackgroundTransparency = 1})
-    local textTween = TweenService:Create(messageLabel, tweenInfo, {TextTransparency = 1})
-    tween:Play()
-    textTween:Play()
-    tween.Completed:Wait()
-    
-    loadScreen:Destroy()
-    callback()
-end
+-- ===== START MAIN GUI =====
+local function startMain()
+    Lighting.Ambient = originalAmbient
+    Lighting.OutdoorAmbient = originalOutdoor
+    blackGui:Destroy()
 
-
--- ===== TELEPORT GUI =====
-local function loadTeleportGUI()
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
-    gui.ResetOnSpawn = false
     gui.Parent = CoreGui
 
-    local savedPos = nil
+    local savedPos
+    local mode = "Smooth"
+    local markerPart
+    local markerBillboard
+    local markerConnection
 
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Size = UDim2.new(0, 40, 0, 40)
-    toggleBtn.Position = UDim2.new(0, 10, 0.5, -20)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(255,165,0)
+    -- ===== MAIN SQUARE WINDOW (190x190) =====
+    local frame = Instance.new("Frame", gui)
+    frame.BackgroundColor3 = Color3.fromRGB(255,165,0)
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
+    frame.Active = true
+    frame.Draggable = true
+    frame.Size = UDim2.new(0,190,0,190)
+    frame.Position = UDim2.new(0.5,-95,0.5,-95)
+
+    local padding = 10
+    local buttonHeight = 25
+    local buttonSpacing = 5
+    local buttons = {}
+
+    -- Title
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1,0,0,25)
+    title.Position = UDim2.new(0,0,0,0)
+    title.BackgroundTransparency = 1
+    title.Text = "CocoX"
+    title.TextColor3 = Color3.new(1,1,1)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 18
+
+    -- Close button
+    local close = Instance.new("TextButton", frame)
+    close.Size = UDim2.new(0,20,0,20)
+    close.Position = UDim2.new(1,-25,0,5)
+    close.Text = "X"
+    close.BackgroundColor3 = Color3.fromRGB(200,0,0)
+    close.TextColor3 = Color3.new(1,1,1)
+    close.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    -- Toggle button for minimized GUI
+    local toggleBtn = Instance.new("TextButton", gui)
+    toggleBtn.Size = UDim2.new(0,30,0,30)
+    toggleBtn.Position = UDim2.new(0.5,-15,0.5,-15)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+    toggleBtn.Text = "^"
     toggleBtn.TextColor3 = Color3.new(1,1,1)
-    toggleBtn.Font = Enum.Font.SourceSansBold
-    toggleBtn.TextSize = 14
-    toggleBtn.Text = "C"
     toggleBtn.Visible = false
-    toggleBtn.Parent = gui
-
-    -- Make toggle button draggable
-    local dragging = false
-    local dragInput, mousePos, framePos
-    toggleBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            mousePos = input.Position
-            framePos = toggleBtn.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleBtn.Visible = false
+        frame.Visible = true
     end)
 
-    toggleBtn.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
+    -- Marker ball function
+    local function createMarker(pos)
+        if markerPart then markerPart:Destroy() end
+        if markerConnection then markerConnection:Disconnect() end
 
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - mousePos
-            toggleBtn.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-        end
-    end)
+        markerPart = Instance.new("Part")
+        markerPart.Shape = Enum.PartType.Ball
+        markerPart.Size = Vector3.new(2,2,2)
+        markerPart.Material = Enum.Material.Neon
+        markerPart.Color = Color3.fromRGB(255,255,255)
+        markerPart.Anchored = true
+        markerPart.CanCollide = false
+        markerPart.Position = pos
+        markerPart.Parent = Workspace
 
-    local function createMainWindow()
-        local win = Instance.new("Frame")
-        win.Name = "Window"
-        win.Size = UDim2.new(0, 200, 0, 160)
-        win.Position = UDim2.new(0.5, -100, 0.5, -80)
-        win.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-        win.BorderSizePixel = 0
-        win.Active = true
-        win.Draggable = true
-        win.Parent = gui
+        markerBillboard = Instance.new("BillboardGui", markerPart)
+        markerBillboard.Size = UDim2.new(0,120,0,40)
+        markerBillboard.StudsOffset = Vector3.new(0,3,0)
+        markerBillboard.AlwaysOnTop = true
 
-        -- Title
-        local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1,0,0,25)
-        title.Position = UDim2.new(0,0,0,0)
-        title.BackgroundTransparency = 1
-        title.Text = "CocoX"
-        title.Font = Enum.Font.SourceSansBold
-        title.TextSize = 18
-        title.TextColor3 = Color3.new(1,1,1)
-        title.Parent = win
+        local label = Instance.new("TextLabel", markerBillboard)
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.new(1,1,1)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansBold
+        label.TextScaled = true
 
-        -- Close button (X)
-        local closeBtn = Instance.new("TextButton")
-        closeBtn.Size = UDim2.new(0, 20, 0, 20)
-        closeBtn.Position = UDim2.new(1, -25, 0, 5)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(255,0,0)
-        closeBtn.TextColor3 = Color3.new(1,1,1)
-        closeBtn.Font = Enum.Font.SourceSansBold
-        closeBtn.TextSize = 14
-        closeBtn.Text = "X"
-        closeBtn.Parent = win
-
-        closeBtn.MouseButton1Click:Connect(function()
-            win.Visible = false
-            toggleBtn.Visible = true
-        end)
-
-        -- Buttons
-        local function createButton(name, posY, callback)
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(0, 160, 0, 30)
-            btn.Position = UDim2.new(0, 20, 0, posY)
-            btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-            btn.TextColor3 = Color3.new(1,1,1)
-            btn.Font = Enum.Font.SourceSans
-            btn.TextSize = 16
-            btn.Text = name
-            btn.Parent = win
-            btn.MouseButton1Click:Connect(callback)
-        end
-
-        createButton("Save Position", 35, function()
+        markerConnection = RunService.RenderStepped:Connect(function()
             local char = me.Character
             if char and char:FindFirstChild("HumanoidRootPart") then
-                savedPos = char.HumanoidRootPart.Position
-                print("Position saved!")
+                local dist = (char.HumanoidRootPart.Position - markerPart.Position).Magnitude
+                label.Text = "Distance: "..math.floor(dist)
             end
-        end)
-
-        createButton("Teleport to Saved", 75, function()
-            local char = me.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and savedPos then
-                char.HumanoidRootPart.CFrame = CFrame.new(savedPos)
-                print("Teleported!")
-            end
-        end)
-
-        createButton("Leave", 115, function()
-            me:Kick("You left the game via CocoX GUI")
         end)
     end
 
-    toggleBtn.MouseButton1Click:Connect(function()
-        toggleBtn.Visible = false
-        createMainWindow()
+    -- Teleport function (now allows free movement)
+    local function teleportToSaved(pos)
+        local char = me.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        if mode == "Smooth" then
+            spawn(function()
+                local startPos = hrp.Position
+                local distance = (pos - startPos).Magnitude
+                local duration = distance / 80
+                local startTime = tick()
+                while tick()-startTime < duration do
+                    local alpha = (tick()-startTime)/duration
+                    hrp.CFrame = CFrame.new(startPos:Lerp(pos, alpha))
+                    RunService.RenderStepped:Wait()
+                end
+                hrp.CFrame = CFrame.new(pos)
+            end)
+        else
+            hrp.CFrame = CFrame.new(pos)
+        end
+    end
+
+    -- Button creator
+    local function button(txt,callback)
+        local b = Instance.new("TextButton", frame)
+        b.Size = UDim2.new(0,190-2*padding,0,buttonHeight)
+        b.BackgroundColor3 = Color3.fromRGB(255,140,0)
+        b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.SourceSansBold
+        b.TextSize = 14
+        b.Text = txt
+        table.insert(buttons,b)
+        b.MouseButton1Click:Connect(callback)
+    end
+
+    -- ===== ADD BUTTONS IN ORDER =====
+    button("Save Pos", function()
+        local char = me.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            savedPos = char.HumanoidRootPart.Position
+            createMarker(savedPos)
+        end
     end)
 
-    createMainWindow()
+    button("Toggle Mode: "..mode, function()
+        if mode == "Smooth" then
+            mode = "Instant"
+        else
+            mode = "Smooth"
+        end
+        buttons[2].Text = "Toggle Mode: "..mode
+    end)
+
+    button("Teleport", function()
+        if savedPos then
+            teleportToSaved(savedPos)
+        end
+    end)
+
+    button("Leave", function()
+        me:Kick("You left the game via CocoX GUI")
+    end)
+
+    -- Position buttons vertically
+    for i,b in ipairs(buttons) do
+        b.Position = UDim2.new(0,padding,0,25 + padding + (i-1)*(buttonHeight + 5))
+    end
+
+    -- Adjust frame height to fit buttons
+    local frameHeight = 25 + padding + (#buttons)*(buttonHeight + 5) + padding
+    frame.Size = UDim2.new(0,190,0,frameHeight)
+    frame.Position = UDim2.new(0.5,-95,0.5,-frameHeight/2)
 end
 
--- Start
-showLoadMessages(loadTeleportGUI)
+-- ===== LOADING SEQUENCE WITH ANIMATED DOTS =====
+task.spawn(function()
+    local messages = {"This was made by CocoX", "I hope you have fun", "Version 9"}
+    
+    for _,msg in ipairs(messages) do
+        text.Text = msg
+        task.wait(2)
+    end
+
+    -- Animated Loading...
+    local dots = 0
+    local totalTime = 3
+    local startTime = tick()
+    while tick() - startTime < totalTime do
+        dots = dots % 3 + 1
+        text.Text = "Loading"..string.rep(".", dots)
+        task.wait(0.5)
+    end
+
+    -- Fade out
+    TweenService:Create(bg, TweenInfo.new(1), {BackgroundTransparency=1}):Play()
+    TweenService:Create(text, TweenInfo.new(1), {TextTransparency=1}):Play()
+    task.wait(1)
+
+    startMain()
+end)
