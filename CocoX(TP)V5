@@ -225,7 +225,7 @@ end
 
 -- ===== LOADING SEQUENCE WITH ANIMATED DOTS =====
 task.spawn(function()
-    local messages = {"This was made by CocoX", "I hope you have fun", "Version 9"}
+    local messages = {"This was made by CocoX", "I hope you have fun", "Version 9", "If you paid for This you got Scammed"}
     
     for _,msg in ipairs(messages) do
         text.Text = msg
