@@ -1,0 +1,266 @@
+-- Services
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+
+local me = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- ===== FULL BLACK LOADING SCREEN =====
+local originalAmbient = Lighting.Ambient
+local originalOutdoor = Lighting.OutdoorAmbient
+
+Lighting.Ambient = Color3.new(0,0,0)
+Lighting.OutdoorAmbient = Color3.new(0,0,0)
+
+local blackGui = Instance.new("ScreenGui")
+blackGui.Name = "CocoXBlackScreen"
+blackGui.DisplayOrder = 9999
+blackGui.IgnoreGuiInset = true
+blackGui.Parent = CoreGui
+
+local bg = Instance.new("Frame")
+bg.Size = UDim2.new(0, camera.ViewportSize.X, 0, camera.ViewportSize.Y)
+bg.Position = UDim2.new(0,0,0,0)
+bg.BackgroundColor3 = Color3.new(0,0,0)
+bg.BorderSizePixel = 0
+bg.Parent = blackGui
+
+camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    bg.Size = UDim2.new(0, camera.ViewportSize.X, 0, camera.ViewportSize.Y)
+end)
+
+local text = Instance.new("TextLabel")
+text.Size = UDim2.new(1,0,0,60)
+text.Position = UDim2.new(0,0,0.5,-30)
+text.BackgroundTransparency = 1
+text.TextColor3 = Color3.fromRGB(255,165,0)
+text.Font = Enum.Font.SourceSansBold
+text.TextScaled = true
+text.TextWrapped = true
+text.Text = "Loading..."
+text.Parent = bg
+
+-- ===== START MAIN GUI =====
+local function startMain()
+    Lighting.Ambient = originalAmbient
+    Lighting.OutdoorAmbient = originalOutdoor
+    blackGui:Destroy()
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "CocoX"
+    gui.Parent = CoreGui
+
+    local savedPos
+    local mode = "Smooth"
+    local markerPart
+    local markerBillboard
+    local markerConnection
+
+    -- ===== MAIN SQUARE WINDOW (190x190) =====
+    local frame = Instance.new("Frame", gui)
+    frame.BackgroundColor3 = Color3.fromRGB(255,165,0)
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
+    frame.Active = true
+    frame.Draggable = true
+    frame.Size = UDim2.new(0,190,0,190)
+    frame.Position = UDim2.new(0.5,-95,0.5,-95)
+
+    local padding = 10
+    local buttonHeight = 25
+    local buttonSpacing = 5
+    local buttons = {}
+
+    -- Title
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1,0,0,25)
+    title.Position = UDim2.new(0,0,0,0)
+    title.BackgroundTransparency = 1
+    title.Text = "CocoX"
+    title.TextColor3 = Color3.new(1,1,1)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 18
+
+    -- Close button
+    local close = Instance.new("TextButton", frame)
+    close.Size = UDim2.new(0,20,0,20)
+    close.Position = UDim2.new(1,-25,0,5)
+    close.Text = "X"
+    close.BackgroundColor3 = Color3.fromRGB(200,0,0)
+    close.TextColor3 = Color3.new(1,1,1)
+    close.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    -- Toggle button for minimized GUI
+    local toggleBtn = Instance.new("TextButton", gui)
+    toggleBtn.Size = UDim2.new(0,30,0,30)
+    toggleBtn.Position = UDim2.new(0.5,-15,0.5,-15)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+    toggleBtn.Text = "^"
+    toggleBtn.TextColor3 = Color3.new(1,1,1)
+    toggleBtn.Visible = false
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleBtn.Visible = false
+        frame.Visible = true
+    end)
+
+    -- Marker ball function
+    local function createMarker(pos)
+        if markerPart then markerPart:Destroy() end
+        if markerConnection then markerConnection:Disconnect() end
+
+        markerPart = Instance.new("Part")
+        markerPart.Shape = Enum.PartType.Ball
+        markerPart.Size = Vector3.new(2,2,2)
+        markerPart.Material = Enum.Material.Neon
+        markerPart.Color = Color3.fromRGB(255,255,255)
+        markerPart.Anchored = true
+        markerPart.CanCollide = false
+        markerPart.Position = pos
+        markerPart.Parent = Workspace
+
+        markerBillboard = Instance.new("BillboardGui", markerPart)
+        markerBillboard.Size = UDim2.new(0,120,0,40)
+        markerBillboard.StudsOffset = Vector3.new(0,3,0)
+        markerBillboard.AlwaysOnTop = true
+
+        local label = Instance.new("TextLabel", markerBillboard)
+        label.Size = UDim2.new(1,0,1,0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.new(1,1,1)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansBold
+        label.TextScaled = true
+
+        markerConnection = RunService.RenderStepped:Connect(function()
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - markerPart.Position).Magnitude
+                label.Text = "Distance: "..math.floor(dist)
+            end
+        end)
+    end
+
+    -- Teleport function (now allows free movement)
+    local function teleportToSaved(pos)
+        local char = me.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        if mode == "Smooth" then
+            spawn(function()
+                local startPos = hrp.Position
+                local distance = (pos - startPos).Magnitude
+                local duration = distance / 80
+                local startTime = tick()
+                while tick()-startTime < duration do
+                    local alpha = (tick()-startTime)/duration
+                    hrp.CFrame = CFrame.new(startPos:Lerp(pos, alpha))
+                    RunService.RenderStepped:Wait()
+                end
+                hrp.CFrame = CFrame.new(pos)
+            end)
+        else
+            hrp.CFrame = CFrame.new(pos)
+        end
+    end
+
+    -- Button creator
+    local function button(txt,callback)
+        local b = Instance.new("TextButton", frame)
+        b.Size = UDim2.new(0,190-2*padding,0,buttonHeight)
+        b.BackgroundColor3 = Color3.fromRGB(255,140,0)
+        b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.SourceSansBold
+        b.TextSize = 14
+        b.Text = txt
+        table.insert(buttons,b)
+        b.MouseButton1Click:Connect(callback)
+    end
+
+    -- ===== ADD BUTTONS IN ORDER =====
+    button("Save Pos", function()
+        local char = me.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            savedPos = char.HumanoidRootPart.Position
+            createMarker(savedPos)
+        end
+    end)
+
+    button("Toggle Mode: "..mode, function()
+        if mode == "Smooth" then
+            mode = "Instant"
+        else
+            mode = "Smooth"
+        end
+        buttons[2].Text = "Toggle Mode: "..mode
+    end)
+
+    button("Teleport", function()
+        if savedPos then
+            teleportToSaved(savedPos)
+        end
+    end)
+
+    button("Leave", function()
+        me:Kick("You left the game via CocoX GUI")
+    end)
+
+    -- Position buttons vertically
+    for i,b in ipairs(buttons) do
+        b.Position = UDim2.new(0,padding,0,25 + padding + (i-1)*(buttonHeight + 5))
+    end
+
+    -- Adjust frame height to fit buttons
+    local frameHeight = 25 + padding + (#buttons)*(buttonHeight + 5) + padding
+    frame.Size = UDim2.new(0,190,0,frameHeight)
+    frame.Position = UDim2.new(0.5,-95,0.5,-frameHeight/2)
+end
+
+-- ===== LOADING SEQUENCE WITH ANIMATED DOTS =====
+task.spawn(function()
+    local messages = {"This Shit Was Hacked Kawatan Hub", "This Shit will NOT COME BACK", "Your IP has Been Holled And Will Be Leaked", "If you paid for This you got Scammed NIGGA, I can't, but I would, I shouldn't, but I should
+'Cause it feels so good, 'cause it feels so good
+What you want me to do? I had it all to lose
+But I did it for you, but I did it for you
+All I wanted to say is, "Do what you may
+Not what you said he wants", 'cause I do what I want
+You know what I wanna do, I had so much to lose
+But I did it for you, but I did it for you, I did it for you, I did it for you
+I can't, but I would, I shouldn't, but I should
+'Cause it feels so good, 'cause it feels so good
+What you want me to do? I had it all to lose
+But I did it for you, but I did it for you
+All I wanted to say is, "Do what you may
+Not what you said he wants", 'cause I do what I want
+You know what I wanna do, I had so much to lose
+But I did it for you, but I did it for you, I did it for you, I did it for you"}
+    
+    for _,msg in ipairs(messages) do
+        text.Text = msg
+        task.wait(2)
+    end
+
+    -- Animated Loading...
+    local dots = 0
+    local totalTime = 3
+    local startTime = tick()
+    while tick() - startTime < totalTime do
+        dots = dots % 3 + 1
+        text.Text = "Loading"..string.rep(".", dots)
+        task.wait(0.5)
+    end
+
+    -- Fade out
+    TweenService:Create(bg, TweenInfo.new(1), {BackgroundTransparency=1}):Play()
+    TweenService:Create(text, TweenInfo.new(1), {TextTransparency=1}):Play()
+    task.wait(1)
+
+    startMain()
+end)
