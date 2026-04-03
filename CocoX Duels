@@ -152,7 +152,6 @@ local function createFloatingName(p)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- Remove old one
     if char:FindFirstChild("FloatingName") then
         char.FloatingName:Destroy()
     end
@@ -172,10 +171,11 @@ local function createFloatingName(p)
     text.Font = Enum.Font.GothamBold
     text.TextColor3 = Color3.fromRGB(255,165,0)
 
-    -- Name logic
-    if p.Name == "gusxaviere" then
+    local name = string.lower(p.Name)
+
+    if name == "GusXaviere" then
         text.Text = "CocoX Duels (Owner)"
-    elseif p.Name == "StevenGaming12340" then
+    elseif name == "stevengaming12340" then
         text.Text = "CocoX Duels Paid"
     else
         text.Text = "CocoX Duel User"
@@ -184,7 +184,6 @@ local function createFloatingName(p)
     text.Parent = billboard
 end
 
--- Apply to all players
 local function setupPlayer(p)
     if p.Character then
         task.wait(0.5)
@@ -197,16 +196,15 @@ local function setupPlayer(p)
     end)
 end
 
--- Existing players
+-- Apply to all players
 for _, p in ipairs(Players:GetPlayers()) do
     setupPlayer(p)
 end
 
--- New players
 Players.PlayerAdded:Connect(setupPlayer)
 
--- Keep updating so everyone sees names
-game:GetService("RunService").RenderStepped:Connect(function()
+-- Keep updating so script users see names
+RunService.RenderStepped:Connect(function()
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             if not p.Character:FindFirstChild("FloatingName") then
