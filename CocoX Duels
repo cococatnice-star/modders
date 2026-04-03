@@ -1,24 +1,25 @@
---// PREMIUM LOGIN + FULL SCRIPT COMBINED
+--// LOGIN UI SYSTEM (COMBINED)
+
+--// PREMIUM LOGIN UI (ORANGE THEME + WHITELIST)
 
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
+
 local player = Players.LocalPlayer
 
 -- ✅ WHITELIST USERS
 local allowedUsers = {
-    ["StevenGaming12340"] = true, -- change to yours
-    ["gusxaviere"] = true,  -- added user
+    ["StevenGaming12340"] = true,
+    ["gusxaviere"] = true,
 }
 
---// BLUR EFFECT
+-- Blur Effect
 local blur = Instance.new("BlurEffect")
 blur.Size = 0
 blur.Parent = Lighting
 
---// LOGIN GUI
+-- GUI
 local LoginGui = Instance.new("ScreenGui")
 LoginGui.Name = "PremiumLogin"
 LoginGui.Parent = game:GetService("CoreGui")
@@ -30,10 +31,14 @@ Frame.AnchorPoint = Vector2.new(0.5, 0.5)
 Frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 12)
 
+-- Animate open
 TweenService:Create(Frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
     Size = UDim2.new(0, 260, 0, 160)
 }):Play()
-TweenService:Create(blur, TweenInfo.new(0.4), {Size = 18}):Play()
+
+TweenService:Create(blur, TweenInfo.new(0.4), {
+    Size = 18
+}):Play()
 
 -- Title
 local Title = Instance.new("TextLabel", Frame)
@@ -76,8 +81,12 @@ local unlocked = false
 -- Click animation
 local function clickAnim(obj)
     local originalSize = obj.Size
-    local down = TweenService:Create(obj, TweenInfo.new(0.1), {Size = originalSize - UDim2.new(0,5,0,5)})
-    local up = TweenService:Create(obj, TweenInfo.new(0.1), {Size = originalSize})
+    local down = TweenService:Create(obj, TweenInfo.new(0.1), {
+        Size = originalSize - UDim2.new(0,5,0,5)
+    })
+    local up = TweenService:Create(obj, TweenInfo.new(0.1), {
+        Size = originalSize
+    })
     down:Play()
     down.Completed:Wait()
     up:Play()
@@ -97,13 +106,23 @@ end
 -- Login logic
 Button.MouseButton1Click:Connect(function()
     clickAnim(Button)
+
     if allowedUsers[TextBox.Text] then
         unlocked = true
-        TweenService:Create(Frame, TweenInfo.new(0.3), {Size = UDim2.new(0,0,0,0)}):Play()
-        TweenService:Create(blur, TweenInfo.new(0.3), {Size = 0}):Play()
+
+        -- Close animation
+        TweenService:Create(Frame, TweenInfo.new(0.3), {
+            Size = UDim2.new(0,0,0,0)
+        }):Play()
+
+        TweenService:Create(blur, TweenInfo.new(0.3), {
+            Size = 0
+        }):Play()
+
         task.wait(0.3)
         LoginGui:Destroy()
         blur:Destroy()
+
     else
         Status.Text = "Access Denied"
         shake()
@@ -112,34 +131,44 @@ end)
 
 repeat task.wait() until unlocked
 
---// ============================================
---// START OF ORIGINAL SCRIPT AFTER LOGIN
---// ============================================
+--// FLOATING NAME SYSTEM
 
--- FLOATING NAME SYSTEM + AUDIO + MOVEMENT LOGIC
 local OWNER_ID = 10260353484
-local AUDIO_ID = 131836435161885
+local AUDIO_ID = 72082675724729 -- updated audio ID
 
--- Play global sound
+-- Play Audio
 local function playSound()
     if workspace:FindFirstChild("CocoXGlobalSound") then return end
+
     local sound = Instance.new("Sound")
     sound.Name = "CocoXGlobalSound"
     sound.SoundId = "rbxassetid://" .. AUDIO_ID
     sound.Volume = 3
     sound.Parent = workspace
     sound:Play()
-    sound.Ended:Connect(function() sound:Destroy() end)
-end
-task.spawn(function() task.wait(1) playSound() end)
 
--- Floating name function
+    sound.Ended:Connect(function()
+        sound:Destroy()
+    end)
+end
+
+task.spawn(function()
+    task.wait(1)
+    playSound()
+end)
+
+-- Floating Name
 local function createFloatingName(p)
     local char = p.Character
     if not char then return end
+
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    if char:FindFirstChild("FloatingName") then char.FloatingName:Destroy() end
+
+    if char:FindFirstChild("FloatingName") then
+        char.FloatingName:Destroy()
+    end
+
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "FloatingName"
     billboard.Adornee = hrp
@@ -147,36 +176,41 @@ local function createFloatingName(p)
     billboard.Size = UDim2.new(0,150,0,40)
     billboard.StudsOffset = Vector3.new(0,3,0)
     billboard.Parent = char
+
     local text = Instance.new("TextLabel")
     text.Size = UDim2.new(1,0,1,0)
     text.BackgroundTransparency = 1
     text.TextScaled = true
     text.Font = Enum.Font.GothamBold
     text.TextColor3 = Color3.fromRGB(255,165,0)
+
     if p.UserId == OWNER_ID then
         text.Text = "CocoX Duels (Owner)"
     else
         text.Text = "CocoX Duel User"
     end
+
     text.Parent = billboard
 end
 
--- Setup player for floating name
+-- Setup Player
 local function setupPlayer(p)
-    if p.Character then task.wait(0.5) createFloatingName(p) end
-    p.CharacterAdded:Connect(function() task.wait(0.5) createFloatingName(p) end)
+    if p.Character then
+        task.wait(0.5)
+        createFloatingName(p)
+    end
+
+    p.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        createFloatingName(p)
+    end)
 end
 
-for _, p in ipairs(Players:GetPlayers()) do setupPlayer(p) end
-Players.PlayerAdded:Connect(setupPlayer)
+for _, p in ipairs(Players:GetPlayers()) do
+    setupPlayer(p)
+end
 
-RunService.RenderStepped:Connect(function()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and not p.Character:FindFirstChild("FloatingName") then
-            createFloatingName(p)
-        end
-    end
-end)
+Players.PlayerAdded:Connect(setupPlayer)
 
 --// Add here all the rest of your movement, TP, auto steal, spin bot, infinite jump, anti-fling, ragdoll handling, etc.
 -- 👉 Everything that was after "repeat task.wait() until unlocked" can go here without changes
