@@ -1,69 +1,138 @@
 --// LOGIN UI SYSTEM (COMBINED)
 
+--// PREMIUM LOGIN UI (ORANGE THEME + WHITELIST)
+
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+
 local player = Players.LocalPlayer
 
+-- ✅ WHITELIST USERS
 local allowedUsers = {
-    ["GusXaviere"] = true, -- change this 
-    ["StevenGaming12340"] = true, -- change this
-
+    ["StevenGaming12340"] = true, -- change to yours
+    ["gusxaviere"] = true,  -- added user
 }
 
--- Create Login GUI
+-- Blur Effect
+local blur = Instance.new("BlurEffect")
+blur.Size = 0
+blur.Parent = Lighting
+
+-- GUI
 local LoginGui = Instance.new("ScreenGui")
-LoginGui.Name = "LoginUI"
+LoginGui.Name = "PremiumLogin"
 LoginGui.Parent = game:GetService("CoreGui")
 
 local Frame = Instance.new("Frame", LoginGui)
-Frame.Size = UDim2.new(0, 250, 0, 150)
-Frame.Position = UDim2.new(0.5, -125, 0.5, -75)
+Frame.Size = UDim2.new(0, 0, 0, 0)
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)
 Frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
 
-Instance.new("UICorner", Frame)
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 12)
 
+-- Animate open
+TweenService:Create(Frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {
+    Size = UDim2.new(0, 260, 0, 160)
+}):Play()
+
+TweenService:Create(blur, TweenInfo.new(0.4), {
+    Size = 18
+}):Play()
+
+-- Title
 local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "CocoX Login"
-Title.TextColor3 = Color3.new(1,1,1)
+Title.Size = UDim2.new(1,0,0,40)
 Title.BackgroundTransparency = 1
+Title.Text = "CocoX Login"
+Title.TextColor3 = Color3.fromRGB(255,165,0)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 
+-- TextBox
 local TextBox = Instance.new("TextBox", Frame)
-TextBox.Size = UDim2.new(0.8, 0, 0, 30)
-TextBox.Position = UDim2.new(0.1, 0, 0.4, 0)
+TextBox.Size = UDim2.new(0.8,0,0,30)
+TextBox.Position = UDim2.new(0.1,0,0.4,0)
 TextBox.PlaceholderText = "Enter Username"
-TextBox.TextColor3 = Color3.new(1,1,1)
+TextBox.Text = ""
+TextBox.TextColor3 = Color3.fromRGB(255,165,0)
 TextBox.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Instance.new("UICorner", TextBox)
 
-local LoginButton = Instance.new("TextButton", Frame)
-LoginButton.Size = UDim2.new(0.8, 0, 0, 30)
-LoginButton.Position = UDim2.new(0.1, 0, 0.7, 0)
-LoginButton.Text = "Login"
-LoginButton.BackgroundColor3 = Color3.fromRGB(139,0,0)
-LoginButton.TextColor3 = Color3.new(1,1,1)
+-- Button
+local Button = Instance.new("TextButton", Frame)
+Button.Size = UDim2.new(0.8,0,0,30)
+Button.Position = UDim2.new(0.1,0,0.7,0)
+Button.Text = "Login"
+Button.BackgroundColor3 = Color3.fromRGB(139,69,0)
+Button.TextColor3 = Color3.fromRGB(255,165,0)
+Instance.new("UICorner", Button)
 
+-- Status
 local Status = Instance.new("TextLabel", Frame)
-Status.Size = UDim2.new(1, 0, 0, 20)
-Status.Position = UDim2.new(0, 0, 1, -20)
+Status.Size = UDim2.new(1,0,0,20)
+Status.Position = UDim2.new(0,0,1,-20)
 Status.BackgroundTransparency = 1
-Status.TextColor3 = Color3.new(1,0,0)
+Status.TextColor3 = Color3.fromRGB(255,165,0)
 Status.Text = ""
 
 local unlocked = false
 
-LoginButton.MouseButton1Click:Connect(function()
+-- Click animation
+local function clickAnim(obj)
+    local originalSize = obj.Size
+    local down = TweenService:Create(obj, TweenInfo.new(0.1), {
+        Size = originalSize - UDim2.new(0,5,0,5)
+    })
+    local up = TweenService:Create(obj, TweenInfo.new(0.1), {
+        Size = originalSize
+    })
+    down:Play()
+    down.Completed:Wait()
+    up:Play()
+end
+
+-- Error shake
+local function shake()
+    for i = 1,3 do
+        Frame.Position = Frame.Position + UDim2.new(0,5,0,0)
+        task.wait(0.03)
+        Frame.Position = Frame.Position - UDim2.new(0,10,0,0)
+        task.wait(0.03)
+        Frame.Position = Frame.Position + UDim2.new(0,5,0,0)
+    end
+end
+
+-- Login logic
+Button.MouseButton1Click:Connect(function()
+    clickAnim(Button)
+
     if allowedUsers[TextBox.Text] then
         unlocked = true
+
+        -- Close animation
+        TweenService:Create(Frame, TweenInfo.new(0.3), {
+            Size = UDim2.new(0,0,0,0)
+        }):Play()
+
+        TweenService:Create(blur, TweenInfo.new(0.3), {
+            Size = 0
+        }):Play()
+
+        task.wait(0.3)
         LoginGui:Destroy()
+        blur:Destroy()
+
     else
         Status.Text = "Access Denied"
+        shake()
     end
 end)
 
 repeat task.wait() until unlocked
 
---// ORIGINAL SCRIPT STARTS HERE
+--// YOUR ORIGINAL SCRIPT STARTS HERE
 
 local Lib = Instance.new("ScreenGui")
 local UIS = game:GetService("UserInputService")
@@ -75,21 +144,7 @@ Lib.ResetOnSpawn = false
 Lib.Parent = game:GetService("CoreGui")
 Lib.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- IMPORTANT: reuse player (don’t redeclare Players again)
-
--- Your original variables
-local rightWaypoints = {
-    Vector3.new(-473.04,-6.99,29.71), Vector3.new(-483.57,-5.10,18.74),
-    Vector3.new(-475.00,-6.99,26.43), Vector3.new(-474.67,-6.94,105.48),
-}
-
-local leftWaypoints = {
-    Vector3.new(-472.49,-7.00,90.62), Vector3.new(-484.62,-5.10,100.37),
-    Vector3.new(-475.08,-7.00,93.29), Vector3.new(-474.22,-6.96,16.18),
-}
-
--- (⚠️ KEEP EVERYTHING ELSE FROM YOUR ORIGINAL SCRIPT EXACTLY BELOW THIS LINE)
-
+-- 👉 PASTE THE REST OF YOUR SCRIPT BELOW (starting from patrolMode etc.)
 -- 👉 PASTE THE REST OF YOUR SCRIPT HERE (starting from patrolMode etc.)
 local patrolMode = "none"
 local floating = false
