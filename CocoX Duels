@@ -143,7 +143,78 @@ end)
 repeat task.wait() until unlocked
 
 --// YOUR ORIGINAL SCRIPT STARTS HERE
+--// FLOATING NAME SYSTEM
 
+local function createFloatingName(p)
+    local char = p.Character
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- Remove old one
+    if char:FindFirstChild("FloatingName") then
+        char.FloatingName:Destroy()
+    end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "FloatingName"
+    billboard.Adornee = hrp
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0,150,0,40)
+    billboard.StudsOffset = Vector3.new(0,3,0)
+    billboard.Parent = char
+
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1,0,1,0)
+    text.BackgroundTransparency = 1
+    text.TextScaled = true
+    text.Font = Enum.Font.GothamBold
+    text.TextColor3 = Color3.fromRGB(255,165,0)
+
+    -- Name logic
+    if p.Name == "gusxaviere" then
+        text.Text = "CocoX Duels (Owner)"
+    elseif p.Name == "StevenGaming12340" then
+        text.Text = "CocoX Duels Paid"
+    else
+        text.Text = "CocoX Duel User"
+    end
+
+    text.Parent = billboard
+end
+
+-- Apply to all players
+local function setupPlayer(p)
+    if p.Character then
+        task.wait(0.5)
+        createFloatingName(p)
+    end
+
+    p.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        createFloatingName(p)
+    end)
+end
+
+-- Existing players
+for _, p in ipairs(Players:GetPlayers()) do
+    setupPlayer(p)
+end
+
+-- New players
+Players.PlayerAdded:Connect(setupPlayer)
+
+-- Keep updating so everyone sees names
+game:GetService("RunService").RenderStepped:Connect(function()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if not p.Character:FindFirstChild("FloatingName") then
+                createFloatingName(p)
+            end
+        end
+    end
+end)
 local Lib = Instance.new("ScreenGui")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
