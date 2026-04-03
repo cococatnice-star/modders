@@ -145,43 +145,37 @@ repeat task.wait() until unlocked
 --// YOUR ORIGINAL SCRIPT STARTS HERE
 --// FLOATING NAME SYSTEM
 
---// SERVICES
---// SERVICES
+--// SERVICES--// SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
---// OWNER & AUDIO SETTINGS
+--// SETTINGS
 local OWNER_ID = 10260353484
-local AUDIO_ID = 131836435161885 -- replace with your audio asset ID
+local AUDIO_ID = 131836435161885
 
--- Create RemoteEvent for playing audio for all clients
-local audioEvent = Instance.new("RemoteEvent")
-audioEvent.Name = "PlayGlobalAudio"
-audioEvent.Parent = ReplicatedStorage
+--// PLAY AUDIO (FOR ALL SCRIPT USERS)
+local function playSound()
+    if workspace:FindFirstChild("CocoXGlobalSound") then return end
 
--- Client-side listener to play audio
-Players.PlayerAdded:Connect(function(p)
-    p.CharacterAdded:Connect(function()
-        local playerGui = p:WaitForChild("PlayerGui")
-        audioEvent.OnClientEvent:Connect(function(audioId)
-            local sound = Instance.new("Sound")
-            sound.SoundId = "rbxassetid://" .. audioId
-            sound.Volume = 1
-            sound.Parent = workspace
-            sound:Play()
-            sound.Ended:Connect(function() sound:Destroy() end)
-        end)
+    local sound = Instance.new("Sound")
+    sound.Name = "CocoXGlobalSound"
+    sound.SoundId = "rbxassetid://" .. AUDIO_ID
+    sound.Volume = 3
+    sound.Parent = workspace
+    sound:Play()
+
+    sound.Ended:Connect(function()
+        sound:Destroy()
     end)
-end)
-
--- Trigger audio for all players when script runs
-for _, p in ipairs(Players:GetPlayers()) do
-    audioEvent:FireClient(p, AUDIO_ID)
 end
 
---// FLOATING NAME FUNCTION
+-- play when script runs
+task.spawn(function()
+    task.wait(1)
+    playSound()
+end)
+
+--// FLOATING NAME
 local function createFloatingName(p)
     local char = p.Character
     if not char then return end
@@ -206,11 +200,9 @@ local function createFloatingName(p)
     text.BackgroundTransparency = 1
     text.TextScaled = true
     text.Font = Enum.Font.GothamBold
-    text.TextColor3 = Color3.fromRGB(255,165,0)
+    text.TextColor3 = Color3.fromRGB(255,165,0) -- ORANGE
 
-    local userId = p.UserId
-
-    if userId == OWNER_ID then
+    if p.UserId == OWNER_ID then
         text.Text = "CocoX Duels (Owner)"
     else
         text.Text = "CocoX Duel User"
@@ -219,25 +211,27 @@ local function createFloatingName(p)
     text.Parent = billboard
 end
 
--- Setup players for floating name
+--// SETUP PLAYER
 local function setupPlayer(p)
     if p.Character then
         task.wait(0.5)
         createFloatingName(p)
     end
+
     p.CharacterAdded:Connect(function()
         task.wait(0.5)
         createFloatingName(p)
     end)
 end
 
--- Apply floating name to all current players
+-- apply to all players
 for _, p in ipairs(Players:GetPlayers()) do
     setupPlayer(p)
 end
+
 Players.PlayerAdded:Connect(setupPlayer)
 
--- Keep floating name updated for anyone using the script
+--// KEEP NAMES UPDATED
 RunService.RenderStepped:Connect(function()
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
