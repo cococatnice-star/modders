@@ -1,0 +1,122 @@
+local runService = game:GetService("RunService")
+local localPlayer = game:GetService("Players").LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+local UserInputService = game:GetService("UserInputService")
+
+local desyncT = {
+   enabled = true,
+   loc = CFrame.new()
+}
+
+-- // GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DesyncGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 110, 0, 35)
+button.Position = UDim2.new(0, 10, 0.5, -20)
+button.Text = "Desync: ON"
+button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+button.TextColor3 = Color3.new(1,1,1)
+button.BorderSizePixel = 0
+button.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = button
+
+-- Toggle
+button.MouseButton1Click:Connect(function()
+    desyncT.enabled = not desyncT.enabled
+    button.Text = desyncT.enabled and "Desync: ON" or "Desync: OFF"
+end)
+
+-- Dragging
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    button.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = button.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+    or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- // WHITE DOT (desync position indicator)
+local dot = Instance.new("Part")
+dot.Size = Vector3.new(0.5, 0.5, 0.5)
+dot.Shape = Enum.PartType.Ball
+dot.Material = Enum.Material.Neon
+dot.Color = Color3.new(1,1,1)
+dot.Anchored = true
+dot.CanCollide = false
+dot.Name = "DesyncDot"
+dot.Parent = workspace
+
+-- // DESYNC LOOP (your code + dot update)
+runService.Heartbeat:Connect(function()
+    if desyncT.enabled and localPlayer.Character then
+        local character = localPlayer.Character
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if root then
+            desyncT.loc = root.CFrame -- setting the real cframe to where we are
+            local newCframe = desyncT.loc -- storing the actual cframe
+            newCframe = newCframe * CFrame.new(0, -5, 0) -- moving our player down 5 studs (via the desync)
+            root.CFrame = newCframe -- setting our root cframe to the new cframe we made (no u will not be able to see this on ur client)
+            runService.RenderStepped:Wait() -- waiitiititt
+            root.CFrame = desyncT.loc -- reset our players cframe back to where we were beforehand
+
+            -- move dot to fake position
+            dot.Position = newCframe.Position
+            dot.Transparency = 0
+
+            root.CFrame = newCframe
+            runService.RenderStepped:Wait()
+            root.CFrame = desyncT.loc
+        end
+    else
+        dot.Transparency = 1 -- hide when off
+    end
+end)
+
+-- // HOOK (unchanged)
+local desynchook = nil
+desynchook = hookmetamethod(game, "__index", newcclosure(function(self, key)
+    if desyncT.enabled and not checkcaller() and key == "CFrame" and localPlayer.Character and self == localPlayer.Character.HumanoidRootPart then
+        return desyncT.loc
+    end
+    return desynchook(self, key)
+end))
