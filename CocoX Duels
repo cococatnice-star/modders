@@ -1236,24 +1236,40 @@ buttons["Desync"]     = MakeMainBtnV2("Desync [K]",       0, RB_X, 0, RY7 + BH +
 
 
 
+
 local desyncActive = false
-desyncActive = false
-updateButtonState(buttons["Desync"], false, "", "Desync [K"])
-disableDesync()
+local dotPart = nil
+local dotConn = nil
 
-buttons["Desync"].MouseButton1Click:Connect(function()
-    desyncActive = not desyncActive
-    
-    if desyncActive then
-        updateButtonState(buttons["Desync"], true, "Desync [ON]", "Desync [K]")
-        enableDesync()
-    else
-        updateButtonState(buttons["Desync"], false, "", "Desync [K]")
-        disableDesync()
+-- CREATE WHITE DOT (REAL POSITION)
+local function createDot()
+    if dotPart then dotPart:Destroy() end
+
+    dotPart = Instance.new("Part")
+    dotPart.Name = "DesyncDot"
+    dotPart.Shape = Enum.PartType.Ball
+    dotPart.Size = Vector3.new(0.6,0.6,0.6)
+    dotPart.Material = Enum.Material.Neon
+    dotPart.Color = Color3.fromRGB(255,255,255)
+    dotPart.Anchored = true
+    dotPart.CanCollide = false
+    dotPart.Parent = workspace
+end
+
+-- REMOVE DOT
+local function removeDot()
+    if dotConn then
+        dotConn:Disconnect()
+        dotConn = nil
     end
-end)
 
--- DESYNC FUNCTIONS
+    if dotPart then
+        dotPart:Destroy()
+        dotPart = nil
+    end
+end
+
+-- RESPAWN (needed for raknet sometimes)
 local function respawnCharacter()
     local char = player.Character
     if char and char:FindFirstChild("Humanoid") then
@@ -1262,24 +1278,60 @@ local function respawnCharacter()
     end
 end
 
+-- ENABLE DESYNC
 local function enableDesync()
     pcall(function()
         if raknet and raknet.desync then
             raknet.desync(true)
             respawnCharacter()
+
+            createDot()
+
+            -- update dot position
+            if dotConn then dotConn:Disconnect() end
+            dotConn = RunService.Heartbeat:Connect(function()
+                if not desyncActive then return end
+
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+                if hrp and dotPart then
+                    dotPart.Position = hrp.Position
+                end
+            end)
+
         else
             warn("raknet.desync not supported")
         end
     end)
 end
 
+-- DISABLE DESYNC
 local function disableDesync()
     pcall(function()
         if raknet and raknet.desync then
             raknet.desync(false)
         end
     end)
+
+    removeDot()
 end
+
+--// BUTTON CONNECTION
+
+local desyncActive = false
+
+buttons["Desync"].MouseButton1Click:Connect(function()
+    desyncActive = not desyncActive
+
+    if desyncActive then
+        updateButtonState(buttons["Desync"], true, "Desync [ON]", "Desync [K]")
+        enableDesync()
+    else
+        updateButtonState(buttons["Desync"], false, "", "Desync [K]")
+        disableDesync()
+    end
+end)
 
 
 local topRightButtons = {}
