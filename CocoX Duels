@@ -1232,7 +1232,7 @@ buttons["float"]      = MakeMainBtnV2("Float [T]",        0, RB_X, 0, RY4, BW, B
 buttons["Float V2"]   = MakeMainBtnV2("Float V2 [B]",     0, RB_X, 0, RY5, BW, BH)
 buttons["Auto Steal"] = MakeMainBtnV2("Auto Steal [S]",   0, RB_X, 0, RY6, BW, BH)
 buttons["Hit TP"]     = MakeMainBtnV2("Hit TP [V]",       0, RB_X, 0, RY7, BW, BH)
-buttons["Desync"]     = MakeMainBtnV2("Desync [K]",       0, RB_X, 0, RY7 + BH + GAP, BW, BH)
+buttons["Desync"]     = MakeMainBtnV2("Desync [Beta]",       0, RB_X, 0, RY7 + BH + GAP, BW, BH)
 
 
 
