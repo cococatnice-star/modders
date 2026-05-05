@@ -5,9 +5,1231 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+local SoundService = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
 
 local me = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
+
+-- ===== WAYPOINTS =====
+local rightWaypoints = {
+    Vector3.new(-473.04,-6.99,29.71),
+    Vector3.new(-483.57,-5.10,18.74),
+    Vector3.new(-475.00,-6.99,26.43),
+    Vector3.new(-474.67,-6.94,105.48),
+}
+
+local leftWaypoints = {
+    Vector3.new(-472.49,-7.00,90.62),
+    Vector3.new(-484.62,-5.10,100.37),
+    Vector3.new(-475.08,-7.00,93.29),
+    Vector3.new(-474.22,-6.96,16.18),
+}
+
+-- ===== SOUNDS =====
+local function playSound(soundType)
+    local sound = Instance.new("Sound")
+    sound.Volume = 0.6
+    sound.Parent = SoundService
+    
+    if soundType == "enable" then
+        sound.SoundId = "rbxassetid://1839181198"
+        sound.Volume = 0.5
+    elseif soundType == "disable" then
+        sound.SoundId = "rbxassetid://5919701243"
+        sound.Volume = 0.5
+    elseif soundType == "click" then
+        sound.SoundId = "rbxassetid://9120384357"
+        sound.Volume = 0.25
+    elseif soundType == "teleport" then
+        sound.SoundId = "rbxassetid://6130696736"
+        sound.Volume = 0.45
+    elseif soundType == "save" then
+        sound.SoundId = "rbxassetid://5843127152"
+        sound.Volume = 0.4
+    elseif soundType == "rubberband" then
+        sound.SoundId = "rbxassetid://4872472557"
+        sound.Volume = 0.5
+    elseif soundType == "leave" then
+        sound.SoundId = "rbxassetid://9120387564"
+        sound.Volume = 0.45
+    elseif soundType == "mode" then
+        sound.SoundId = "rbxassetid://4006253675"
+        sound.Volume = 0.35
+    elseif soundType == "error" then
+        sound.SoundId = "rbxassetid://9120386436"
+        sound.Volume = 0.4
+    elseif soundType == "success" then
+        sound.SoundId = "rbxassetid://9120388456"
+        sound.Volume = 0.4
+    elseif soundType == "notification" then
+        sound.SoundId = "rbxassetid://4404628606"
+        sound.Volume = 0.2
+    end
+    
+    sound.PlayOnRemove = true
+    sound:Play()
+    
+    task.spawn(function()
+        task.wait(2)
+        sound:Destroy()
+    end)
+end
+
+-- ===== NOTIFICATION SYSTEM =====
+local notificationGui = nil
+local activeNotifications = {}
+
+local function destroyNotification(notification)
+    if not notification or not notification.Parent then return end
+    
+    for i, notif in pairs(activeNotifications) do
+        if notif == notification then
+            activeNotifications[i] = nil
+            break
+        end
+    end
+    
+    local fadeOut = TweenService:Create(notification, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+        Position = UDim2.new(1, 50, 1, -90),
+        BackgroundTransparency = 1
+    })
+    
+    fadeOut:Play()
+    fadeOut.Completed:Connect(function()
+        pcall(function() notification:Destroy() end)
+    end)
+    
+    for _, child in pairs(notification:GetChildren()) do
+        if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("Frame") then
+            pcall(function()
+                local fade = TweenService:Create(child, TweenInfo.new(0.2), {TextTransparency = 1, BackgroundTransparency = 1})
+                fade:Play()
+            end)
+        end
+    end
+end
+
+local function createNotification(title, message, notificationType, duration)
+    if not notificationGui then
+        notificationGui = Instance.new("ScreenGui")
+        notificationGui.Name = "NotificationCenter"
+        notificationGui.Parent = CoreGui
+        notificationGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        notificationGui.IgnoreGuiInset = true
+    end
+    
+    local colors = {
+        success = { main = Color3.fromRGB(0, 255, 100), dark = Color3.fromRGB(0, 200, 80), icon = "✓" },
+        error = { main = Color3.fromRGB(255, 60, 60), dark = Color3.fromRGB(200, 40, 40), icon = "✕" },
+        info = { main = Color3.fromRGB(0, 160, 255), dark = Color3.fromRGB(0, 120, 200), icon = "ℹ" },
+        warning = { main = Color3.fromRGB(255, 180, 0), dark = Color3.fromRGB(200, 140, 0), icon = "⚠" },
+        teleport = { main = Color3.fromRGB(150, 100, 255), dark = Color3.fromRGB(120, 70, 220), icon = "✨" },
+        save = { main = Color3.fromRGB(0, 200, 150), dark = Color3.fromRGB(0, 160, 120), icon = "💾" },
+        desync_on = { main = Color3.fromRGB(0, 255, 0), dark = Color3.fromRGB(0, 200, 0), icon = "🔴" },
+        desync_off = { main = Color3.fromRGB(255, 80, 80), dark = Color3.fromRGB(200, 60, 60), icon = "⭕" },
+        rubberband = { main = Color3.fromRGB(255, 100, 0), dark = Color3.fromRGB(200, 80, 0), icon = "🌀" }
+    }
+    
+    local color = colors[notificationType] or colors.info
+    local notifDuration = duration or 3
+    
+    local notification = Instance.new("Frame")
+    notification.Size = UDim2.new(0, 340, 0, 70)
+    notification.Position = UDim2.new(1, 50, 1, -90)
+    notification.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    notification.BackgroundTransparency = 0.05
+    notification.BorderSizePixel = 0
+    notification.ClipsDescendants = true
+    notification.Parent = notificationGui
+    
+    table.insert(activeNotifications, notification)
+    
+    local glow = Instance.new("Frame")
+    glow.Size = UDim2.new(1, 4, 1, 4)
+    glow.Position = UDim2.new(0, -2, 0, -2)
+    glow.BackgroundColor3 = color.main
+    glow.BackgroundTransparency = 0.7
+    glow.BorderSizePixel = 0
+    glow.Parent = notification
+    
+    local glowCorner = Instance.new("UICorner")
+    glowCorner.CornerRadius = UDim.new(0, 10)
+    glowCorner.Parent = glow
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = notification
+    
+    local colorBar = Instance.new("Frame")
+    colorBar.Size = UDim2.new(0, 5, 1, 0)
+    colorBar.BackgroundColor3 = color.main
+    colorBar.BorderSizePixel = 0
+    colorBar.Parent = notification
+    
+    local barCorner = Instance.new("UICorner")
+    barCorner.CornerRadius = UDim.new(0, 4)
+    barCorner.Parent = colorBar
+    
+    local iconCircle = Instance.new("Frame")
+    iconCircle.Size = UDim2.new(0, 32, 0, 32)
+    iconCircle.Position = UDim2.new(0, 15, 0.5, -16)
+    iconCircle.BackgroundColor3 = color.dark
+    iconCircle.BackgroundTransparency = 0.2
+    iconCircle.BorderSizePixel = 0
+    iconCircle.Parent = notification
+    
+    local iconCorner = Instance.new("UICorner")
+    iconCorner.CornerRadius = UDim.new(1, 0)
+    iconCorner.Parent = iconCircle
+    
+    local iconText = Instance.new("TextLabel")
+    iconText.Size = UDim2.new(1, 0, 1, 0)
+    iconText.BackgroundTransparency = 1
+    iconText.Text = color.icon
+    iconText.TextColor3 = color.main
+    iconText.TextSize = 18
+    iconText.Font = Enum.Font.GothamBold
+    iconText.TextXAlignment = Enum.TextXAlignment.Center
+    iconText.TextYAlignment = Enum.TextYAlignment.Center
+    iconText.Parent = iconCircle
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -75, 0, 28)
+    titleLabel.Position = UDim2.new(0, 60, 0, 12)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = title
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 15
+    titleLabel.Parent = notification
+    
+    local msgLabel = Instance.new("TextLabel")
+    msgLabel.Size = UDim2.new(1, -75, 0, 28)
+    msgLabel.Position = UDim2.new(0, 60, 0, 35)
+    msgLabel.BackgroundTransparency = 1
+    msgLabel.Text = message
+    msgLabel.TextColor3 = Color3.fromRGB(170, 170, 180)
+    msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+    msgLabel.Font = Enum.Font.Gotham
+    msgLabel.TextSize = 12
+    msgLabel.TextWrapped = true
+    msgLabel.Parent = notification
+    
+    local progressBar = Instance.new("Frame")
+    progressBar.Size = UDim2.new(1, 0, 0, 3)
+    progressBar.Position = UDim2.new(0, 0, 1, -3)
+    progressBar.BackgroundColor3 = color.main
+    progressBar.BackgroundTransparency = 0.3
+    progressBar.BorderSizePixel = 0
+    progressBar.Parent = notification
+    
+    local progressFill = Instance.new("Frame")
+    progressFill.Size = UDim2.new(1, 0, 1, 0)
+    progressFill.BackgroundColor3 = color.main
+    progressFill.BorderSizePixel = 0
+    progressFill.Parent = progressBar
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 24, 0, 24)
+    closeBtn.Position = UDim2.new(1, -32, 0, 8)
+    closeBtn.BackgroundTransparency = 1
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(150, 150, 160)
+    closeBtn.TextSize = 14
+    closeBtn.Font = Enum.Font.Gotham
+    closeBtn.Parent = notification
+    
+    local progressTween = TweenService:Create(progressFill, TweenInfo.new(notifDuration, Enum.EasingStyle.Linear), {
+        Size = UDim2.new(0, 0, 1, 0)
+    })
+    progressTween:Play()
+    
+    notification.Position = UDim2.new(1, 50, 1, -90)
+    notification.BackgroundTransparency = 1
+    
+    local slideIn = TweenService:Create(notification, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -360, 1, -90),
+        BackgroundTransparency = 0.05
+    })
+    slideIn:Play()
+    
+    playSound("notification")
+    
+    closeBtn.MouseButton1Click:Connect(function()
+        playSound("click")
+        if progressTween then progressTween:Cancel() end
+        destroyNotification(notification)
+    end)
+    
+    task.spawn(function()
+        task.wait(notifDuration)
+        if notification and notification.Parent then
+            if progressTween then progressTween:Cancel() end
+            destroyNotification(notification)
+        end
+    end)
+    
+    return notification
+end
+
+-- ===== AUTO PATHING VARIABLES =====
+local autoActive = false
+local autoDirection = nil
+local currentWaypointIndex = 1
+local autoConnection = nil
+local currentTargetPos = nil
+local moveTween = nil
+
+-- ===== AUTO PATH FUNCTIONS =====
+local function moveToPosition(targetPos)
+    local char = me.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    
+    if moveTween then
+        moveTween:Cancel()
+        moveTween = nil
+    end
+    
+    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+    moveTween = TweenService:Create(hrp, tweenInfo, {CFrame = CFrame.new(targetPos)})
+    moveTween:Play()
+    
+    moveTween.Completed:Connect(function()
+        moveTween = nil
+    end)
+    
+    return true
+end
+
+local function startAutoPath(direction)
+    if autoActive then
+        stopAutoPath()
+    end
+    
+    autoDirection = direction
+    currentWaypointIndex = 1
+    autoActive = true
+    
+    local waypoints = (direction == "right") and rightWaypoints or leftWaypoints
+    
+    if #waypoints == 0 then
+        createNotification("❌ Error", "No waypoints found for " .. direction, "error", 2)
+        autoActive = false
+        return
+    end
+    
+    createNotification("🚶 Auto " .. direction:upper(), "Starting auto path movement", "success", 2)
+    playSound("enable")
+    
+    currentTargetPos = waypoints[currentWaypointIndex]
+    moveToPosition(currentTargetPos)
+    
+    autoConnection = RunService.RenderStepped:Connect(function()
+        if not autoActive then return end
+        
+        local char = me.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        
+        local waypoints = (autoDirection == "right") and rightWaypoints or leftWaypoints
+        local targetPos = waypoints[currentWaypointIndex]
+        
+        if not targetPos then
+            currentWaypointIndex = 1
+            targetPos = waypoints[1]
+        end
+        
+        local distance = (hrp.Position - targetPos).Magnitude
+        
+        if distance < 5 then
+            currentWaypointIndex = currentWaypointIndex + 1
+            if currentWaypointIndex > #waypoints then
+                currentWaypointIndex = 1
+                createNotification("🔄 Loop", "Completed loop, starting over", "info", 1)
+            end
+            
+            local nextTarget = waypoints[currentWaypointIndex]
+            if nextTarget then
+                currentTargetPos = nextTarget
+                moveToPosition(currentTargetPos)
+                createNotification("📍 Waypoint", "Moving to waypoint " .. currentWaypointIndex .. " of " .. #waypoints, "info", 1)
+            end
+        end
+    end)
+end
+
+local function stopAutoPath()
+    if not autoActive then return end
+    
+    autoActive = false
+    if autoConnection then
+        autoConnection:Disconnect()
+        autoConnection = nil
+    end
+    
+    if moveTween then
+        moveTween:Cancel()
+        moveTween = nil
+    end
+    
+    autoDirection = nil
+    currentWaypointIndex = 1
+    currentTargetPos = nil
+    
+    createNotification("⭕ Auto Stopped", "Auto path movement stopped", "desync_off", 2)
+    playSound("disable")
+end
+
+local function toggleAutoRight()
+    if autoActive and autoDirection == "right" then
+        stopAutoPath()
+    else
+        startAutoPath("right")
+    end
+end
+
+local function toggleAutoLeft()
+    if autoActive and autoDirection == "left" then
+        stopAutoPath()
+    else
+        startAutoPath("left")
+    end
+end
+
+-- ===== RUBBERBAND COUNTER =====
+local rubberbandCount = 0
+local rubberbandWarningShown = false
+local warningGui = nil
+local desyncBtn = nil
+local currentDesyncMethod = "None"
+local desyncActive = false
+local desyncWorldDot = nil
+local desyncBillboard = nil
+local desyncDistanceLabel = nil
+local desyncConnection = nil
+local lastServerPos = nil
+
+-- ===== SAVE POS MARKER VARIABLES =====
+local savedPosMarker = nil
+local savedPosBillboard = nil
+local savedPosConnection = nil
+local savedPos = nil
+
+-- ===== PAGE VARIABLES =====
+local currentPage = 1
+local totalPages = 2
+local pageFrame = nil
+local buttons = {}
+local mode = "Smooth"
+
+-- ===== DESYNC WITH FALLBACK (raknet.desync -> raknet.hook) =====
+local function enableDesyncWithFallback()
+    local success = false
+    local methodUsed = "None"
+    
+    -- Try 1: raknet.desync
+    if raknet and raknet.desync then
+        local worked = pcall(function()
+            raknet.desync(true)
+            if raknet.setping then raknet.setping(9999) end
+            if raknet.blockpacket then raknet.blockpacket(0x83, true) end
+        end)
+        if worked then
+            success = true
+            methodUsed = "RakNet.desync"
+            print("[Desync] Using raknet.desync method")
+        end
+    end
+    
+    -- Try 2: raknet.hook (fallback if desync not available)
+    if not success and raknet and raknet.hook then
+        local worked = pcall(function()
+            raknet.hook(true)
+        end)
+        if worked then
+            success = true
+            methodUsed = "RakNet.hook"
+            print("[Desync] Using raknet.hook method (fallback)")
+        end
+    end
+    
+    -- Try 3: Desync.hook (alternative executor)
+    if not success and Desync and Desync.hook then
+        local worked = pcall(function()
+            Desync.hook(true)
+        end)
+        if worked then
+            success = true
+            methodUsed = "Desync.hook"
+            print("[Desync] Using Desync.hook method (second fallback)")
+        end
+    end
+    
+    -- Try 4: raknet.send packet method
+    if not success and raknet and raknet.send then
+        local worked = pcall(function()
+            raknet.send(0x83, "desync_payload")
+            raknet.send(0x84, "sync_break")
+        end)
+        if worked then
+            success = true
+            methodUsed = "RakNet.send"
+            print("[Desync] Using raknet.send method (third fallback)")
+        end
+    end
+    
+    -- Try 5: Network manipulation (last resort)
+    if not success then
+        local worked = pcall(function()
+            local network = game:GetService("NetworkClient")
+            if network and network.SetSimulationRadius then
+                network:SetSimulationRadius(0)
+            end
+            if settings().Network and settings().Network.IncomingReplicationLag then
+                settings().Network.IncomingReplicationLag = 9999
+            end
+        end)
+        if worked then
+            success = true
+            methodUsed = "Network Manipulation"
+            print("[Desync] Using network manipulation (last resort)")
+        end
+    end
+    
+    return success, methodUsed
+end
+
+local function disableDesyncWithFallback()
+    -- Try raknet.desync false
+    if raknet and raknet.desync then
+        pcall(function() raknet.desync(false) end)
+    end
+    
+    -- Try raknet.hook false
+    if raknet and raknet.hook then
+        pcall(function() raknet.hook(false) end)
+    end
+    
+    -- Try Desync.hook false
+    if Desync and Desync.hook then
+        pcall(function() Desync.hook(false) end)
+    end
+    
+    -- Reset network
+    pcall(function()
+        if raknet and raknet.setping then raknet.setping(nil) end
+        if raknet and raknet.blockpacket then raknet.blockpacket(0x83, false) end
+        
+        local network = game:GetService("NetworkClient")
+        if network and network.SetSimulationRadius then
+            network:SetSimulationRadius(16)
+        end
+        
+        if settings().Network and settings().Network.IncomingReplicationLag then
+            settings().Network.IncomingReplicationLag = 0
+        end
+    end)
+end
+
+-- ===== CONFIRMATION DIALOGUE =====
+local function showConfirmationDialog()
+    if warningGui then return end
+    
+    playSound("notification")
+    
+    warningGui = Instance.new("ScreenGui")
+    warningGui.Name = "ConfirmationDialog"
+    warningGui.Parent = CoreGui
+    warningGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.6
+    overlay.BorderSizePixel = 0
+    overlay.Parent = warningGui
+    
+    local dialog = Instance.new("Frame")
+    dialog.Size = UDim2.new(0, 400, 0, 220)
+    dialog.Position = UDim2.new(0.5, -200, 0.5, -110)
+    dialog.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+    dialog.BackgroundTransparency = 0.05
+    dialog.BorderSizePixel = 0
+    dialog.ClipsDescendants = true
+    dialog.Parent = warningGui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = dialog
+    
+    local glow = Instance.new("Frame")
+    glow.Size = UDim2.new(1, 4, 1, 4)
+    glow.Position = UDim2.new(0, -2, 0, -2)
+    glow.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+    glow.BackgroundTransparency = 0.5
+    glow.BorderSizePixel = 0
+    glow.Parent = dialog
+    
+    local glowCorner = Instance.new("UICorner")
+    glowCorner.CornerRadius = UDim.new(0, 14)
+    glowCorner.Parent = glow
+    
+    local iconCircle = Instance.new("Frame")
+    iconCircle.Size = UDim2.new(0, 60, 0, 60)
+    iconCircle.Position = UDim2.new(0.5, -30, 0, -30)
+    iconCircle.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
+    iconCircle.BackgroundTransparency = 0.2
+    iconCircle.BorderSizePixel = 0
+    iconCircle.Parent = dialog
+    
+    local iconCorner = Instance.new("UICorner")
+    iconCorner.CornerRadius = UDim.new(1, 0)
+    iconCorner.Parent = iconCircle
+    
+    local iconText = Instance.new("TextLabel")
+    iconText.Size = UDim2.new(1, 0, 1, 0)
+    iconText.BackgroundTransparency = 1
+    iconText.Text = "⚠️"
+    iconText.TextColor3 = Color3.fromRGB(255, 100, 0)
+    iconText.TextSize = 35
+    iconText.Font = Enum.Font.GothamBold
+    iconText.TextXAlignment = Enum.TextXAlignment.Center
+    iconText.TextYAlignment = Enum.TextYAlignment.Center
+    iconText.Parent = iconCircle
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -40, 0, 30)
+    title.Position = UDim2.new(0, 20, 0, 40)
+    title.BackgroundTransparency = 1
+    title.Text = "⚠️ Heavy Lag Detected!"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextSize = 20
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Center
+    title.Parent = dialog
+    
+    local message = Instance.new("TextLabel")
+    message.Size = UDim2.new(1, -40, 0, 50)
+    message.Position = UDim2.new(0, 20, 0, 75)
+    message.BackgroundTransparency = 1
+    message.Text = "You have rubberbanded 10 times while desync is active.\nThis may cause instability.\nDo you want to continue using desync?"
+    message.TextColor3 = Color3.fromRGB(180, 180, 190)
+    message.TextSize = 14
+    message.Font = Enum.Font.Gotham
+    message.TextXAlignment = Enum.TextXAlignment.Center
+    message.TextYAlignment = Enum.TextYAlignment.Top
+    message.TextWrapped = true
+    message.Parent = dialog
+    
+    local buttonContainer = Instance.new("Frame")
+    buttonContainer.Size = UDim2.new(1, -40, 0, 40)
+    buttonContainer.Position = UDim2.new(0, 20, 1, -55)
+    buttonContainer.BackgroundTransparency = 1
+    buttonContainer.Parent = dialog
+    
+    local continueBtn = Instance.new("TextButton")
+    continueBtn.Size = UDim2.new(0, 150, 0, 40)
+    continueBtn.Position = UDim2.new(0, 0, 0, 0)
+    continueBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+    continueBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    continueBtn.Text = "✓ Continue Desync"
+    continueBtn.TextSize = 14
+    continueBtn.Font = Enum.Font.GothamBold
+    continueBtn.Parent = buttonContainer
+    
+    local continueCorner = Instance.new("UICorner")
+    continueCorner.CornerRadius = UDim.new(0, 8)
+    continueCorner.Parent = continueBtn
+    
+    local disableBtn = Instance.new("TextButton")
+    disableBtn.Size = UDim2.new(0, 150, 0, 40)
+    disableBtn.Position = UDim2.new(1, -150, 0, 0)
+    disableBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    disableBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    disableBtn.Text = "✕ Disable Desync"
+    disableBtn.TextSize = 14
+    disableBtn.Font = Enum.Font.GothamBold
+    disableBtn.Parent = buttonContainer
+    
+    local disableCorner = Instance.new("UICorner")
+    disableCorner.CornerRadius = UDim.new(0, 8)
+    disableCorner.Parent = disableBtn
+    
+    continueBtn.MouseEnter:Connect(function()
+        TweenService:Create(continueBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 180, 70)}):Play()
+    end)
+    continueBtn.MouseLeave:Connect(function()
+        TweenService:Create(continueBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 150, 50)}):Play()
+    end)
+    
+    disableBtn.MouseEnter:Connect(function()
+        TweenService:Create(disableBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 70, 70)}):Play()
+    end)
+    disableBtn.MouseLeave:Connect(function()
+        TweenService:Create(disableBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 50, 50)}):Play()
+    end)
+    
+    dialog.Position = UDim2.new(0.5, -200, 0.5, -150)
+    dialog.BackgroundTransparency = 1
+    
+    local slideIn = TweenService:Create(dialog, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -200, 0.5, -110),
+        BackgroundTransparency = 0.05
+    })
+    slideIn:Play()
+    
+    continueBtn.MouseButton1Click:Connect(function()
+        playSound("click")
+        rubberbandCount = 0
+        rubberbandWarningShown = false
+        createNotification("✅ Desync Continued", "Rubberband counter has been reset", "success", 2.5)
+        
+        local fadeOut = TweenService:Create(dialog, TweenInfo.new(0.2), {
+            Position = UDim2.new(0.5, -200, 0.5, -150),
+            BackgroundTransparency = 1
+        })
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            warningGui:Destroy()
+            warningGui = nil
+        end)
+        
+        local overlayFade = TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 1})
+        overlayFade:Play()
+    end)
+    
+    disableBtn.MouseButton1Click:Connect(function()
+        playSound("disable")
+        disableDesyncWithFallback()
+        desyncActive = false
+        rubberbandCount = 0
+        rubberbandWarningShown = false
+        createNotification("⭕ Desync Disabled", "Desync has been turned off due to heavy lag", "desync_off", 3)
+        
+        if desyncBtn then
+            desyncBtn.Text = "🔘 Desync: OFF"
+            desyncBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+        end
+        
+        if desyncWorldDot then
+            desyncWorldDot.Visible = false
+        end
+        
+        if desyncConnection then
+            desyncConnection:Disconnect()
+            desyncConnection = nil
+        end
+        
+        local char = me.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = 16
+            char.Humanoid.JumpPower = 50
+        end
+        
+        local fadeOut = TweenService:Create(dialog, TweenInfo.new(0.2), {
+            Position = UDim2.new(0.5, -200, 0.5, -150),
+            BackgroundTransparency = 1
+        })
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
+            warningGui:Destroy()
+            warningGui = nil
+        end)
+        
+        local overlayFade = TweenService:Create(overlay, TweenInfo.new(0.2), {BackgroundTransparency = 1})
+        overlayFade:Play()
+    end)
+end
+
+-- ===== CREATE 3D WORLD WHITE BALL =====
+local function createWorldWhiteBall(position, name)
+    local ball = Instance.new("Part")
+    ball.Name = name or "WhiteBall"
+    ball.Shape = Enum.PartType.Ball
+    ball.Size = Vector3.new(2.5, 2.5, 2.5)
+    ball.Material = Enum.Material.Neon
+    ball.Color = Color3.fromRGB(255, 255, 255)
+    ball.Anchored = true
+    ball.CanCollide = false
+    ball.CastShadow = false
+    ball.Transparency = 0
+    ball.Position = position
+    ball.Parent = Workspace
+    
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.2
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Parent = ball
+    
+    local billboard = Instance.new("BillboardGui", ball)
+    billboard.Size = UDim2.new(0, 80, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    
+    local distanceNumber = Instance.new("TextLabel", billboard)
+    distanceNumber.Size = UDim2.new(1, 0, 1, 0)
+    distanceNumber.BackgroundTransparency = 1
+    distanceNumber.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distanceNumber.TextStrokeTransparency = 0
+    distanceNumber.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceNumber.Font = Enum.Font.GothamBold
+    distanceNumber.TextScaled = true
+    distanceNumber.Text = "0"
+    
+    return ball, billboard, distanceNumber, highlight
+end
+
+-- ===== UPDATE FUNCTIONS =====
+local function updateDesyncBallPosition()
+    if not desyncWorldDot then return end
+    if lastServerPos then
+        desyncWorldDot.Position = lastServerPos
+    end
+end
+
+local function updateDesyncDistance()
+    if not desyncWorldDot or not desyncDistanceLabel then return end
+    
+    local char = me.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local dist = (char.HumanoidRootPart.Position - desyncWorldDot.Position).Magnitude
+        desyncDistanceLabel.Text = math.floor(dist) .. " studs"
+        
+        if dist > 15 then
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        elseif dist > 8 then
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 200, 80)
+        else
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+end
+
+local function updateSavePosDistance()
+    if not savedPosMarker or not savedPosMarker.Parent then return end
+    
+    local billboard = savedPosMarker:FindFirstChildOfClass("BillboardGui")
+    if billboard then
+        local label = billboard:FindFirstChildOfClass("TextLabel")
+        if label then
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - savedPosMarker.Position).Magnitude
+                label.Text = math.floor(dist) .. " studs"
+                
+                if dist > 15 then
+                    label.TextColor3 = Color3.fromRGB(255, 80, 80)
+                elseif dist > 8 then
+                    label.TextColor3 = Color3.fromRGB(255, 200, 80)
+                else
+                    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                end
+            end
+        end
+    end
+end
+
+-- ===== DETECT RUBBERBAND WITH COUNTER =====
+local function detectRubberband()
+    local lastPosition = nil
+    local lastTime = tick()
+    
+    spawn(function()
+        while true do
+            task.wait(0.05)
+            
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local currentPos = char.HumanoidRootPart.Position
+                
+                if lastPosition then
+                    local distance = (currentPos - lastPosition).Magnitude
+                    local timeDiff = tick() - lastTime
+                    
+                    if distance > 15 and timeDiff < 0.15 and desyncActive then
+                        rubberbandCount = rubberbandCount + 1
+                        
+                        if rubberbandCount % 5 == 0 and rubberbandCount < 10 then
+                            createNotification("⚠️ Lag Warning", "Rubberband #" .. rubberbandCount .. " | Desync becoming unstable", "warning", 2)
+                        end
+                        
+                        if rubberbandCount == 8 then
+                            createNotification("⚠️ Critical Lag", "2 more rubberbands until action required", "rubberband", 2.5)
+                        elseif rubberbandCount == 9 then
+                            createNotification("⚠️ Final Warning", "1 more rubberband and desync will be disabled", "rubberband", 2.5)
+                        end
+                        
+                        if rubberbandCount >= 10 and not rubberbandWarningShown then
+                            rubberbandWarningShown = true
+                            createNotification("⚠️ Heavy Lag Detected", "Opening confirmation dialog...", "warning", 2)
+                            task.wait(0.5)
+                            showConfirmationDialog()
+                        end
+                        
+                        lastServerPos = currentPos
+                        
+                        if desyncWorldDot then
+                            desyncWorldDot.Position = currentPos
+                            playSound("rubberband")
+                            
+                            local flashColor = Color3.fromRGB(255, 100, 0)
+                            if rubberbandCount >= 8 then
+                                flashColor = Color3.fromRGB(255, 0, 0)
+                            end
+                            
+                            local original = desyncWorldDot.Color
+                            desyncWorldDot.Color = flashColor
+                            task.wait(0.05)
+                            desyncWorldDot.Color = Color3.fromRGB(255, 255, 0)
+                            task.wait(0.05)
+                            desyncWorldDot.Color = original
+                        end
+                        
+                        createNotification("🌀 Rubberband #" .. rubberbandCount, "Desync ball moved to new position", "rubberband", 2)
+                        task.wait(0.3)
+                    end
+                end
+                
+                lastPosition = currentPos
+                lastTime = tick()
+            else
+                lastPosition = nil
+                task.wait(0.5)
+            end
+        end
+    end)
+end
+
+-- ===== DESYNC FUNCTIONS =====
+local function freezeServerPosition()
+    local char = me.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        lastServerPos = char.HumanoidRootPart.Position
+    end
+end
+
+local function enableDesync()
+    if desyncActive then return true end
+    
+    freezeServerPosition()
+    
+    local success, methodUsed = enableDesyncWithFallback()
+    
+    if not success then
+        createNotification("❌ Error", "No desync method available! Make sure you have a working executor.", "error", 4)
+        return false
+    end
+    
+    playSound("enable")
+    currentDesyncMethod = methodUsed
+    
+    rubberbandCount = 0
+    rubberbandWarningShown = false
+    
+    if not desyncWorldDot then
+        desyncWorldDot, desyncBillboard, desyncDistanceLabel = createWorldWhiteBall(lastServerPos, "DesyncWhiteBall")
+    else
+        desyncWorldDot.Position = lastServerPos
+        desyncWorldDot.Visible = true
+    end
+    
+    desyncActive = true
+    
+    desyncConnection = RunService.RenderStepped:Connect(function()
+        updateDesyncBallPosition()
+        updateDesyncDistance()
+    end)
+    
+    local char = me.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 0
+        char.Humanoid.JumpPower = 0
+    end
+    
+    createNotification("🔴 Desync ENABLED", "Using: " .. methodUsed .. " | Lag counter: 0/10", "desync_on", 4)
+    print("[Desync] Enabled using method: " .. methodUsed)
+    return true
+end
+
+local function disableDesync()
+    if not desyncActive then return end
+    
+    playSound("disable")
+    
+    disableDesyncWithFallback()
+    
+    desyncActive = false
+    
+    if desyncWorldDot then
+        desyncWorldDot.Visible = false
+    end
+    
+    if desyncConnection then
+        desyncConnection:Disconnect()
+        desyncConnection = nil
+    end
+    
+    local char = me.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 16
+        char.Humanoid.JumpPower = 50
+        char.Humanoid.PlatformStand = false
+    end
+    
+    createNotification("⭕ Desync DISABLED", "White ball hidden | Movement restored", "desync_off", 3)
+end
+
+local function toggleDesync()
+    if desyncActive then
+        disableDesync()
+    else
+        enableDesync()
+    end
+end
+
+-- ===== SAVE POS FUNCTIONS =====
+local function cleanupSavePosMarker()
+    if savedPosMarker then
+        savedPosMarker:Destroy()
+        savedPosMarker = nil
+    end
+    if savedPosConnection then
+        savedPosConnection:Disconnect()
+        savedPosConnection = nil
+    end
+end
+
+local function savePosition()
+    local char = me.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        savedPos = char.HumanoidRootPart.Position
+        cleanupSavePosMarker()
+        savedPosMarker, savedPosBillboard, _ = createWorldWhiteBall(savedPos, "SavedPosBall")
+        savedPosConnection = RunService.RenderStepped:Connect(updateSavePosDistance)
+        
+        playSound("save")
+        createNotification("💾 Position Saved", string.format("📍 (%.1f, %.1f, %.1f)", savedPos.X, savedPos.Y, savedPos.Z), "save", 2.5)
+    else
+        playSound("error")
+        createNotification("❌ Save Failed", "Could not save position", "error", 2)
+    end
+end
+
+-- ===== TELEPORT FUNCTIONS =====
+local function teleportToSaved()
+    if not savedPos then
+        playSound("error")
+        createNotification("⚠️ No Position Saved", "Save a position first before teleporting", "warning", 2.5)
+        return
+    end
+    
+    playSound("teleport")
+    
+    local char = me.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    
+    if mode == "Smooth" then
+        createNotification("✨ Teleporting", "Moving smoothly to saved position...", "teleport", 2)
+        spawn(function()
+            local startPos = hrp.Position
+            local distance = (savedPos - startPos).Magnitude
+            local duration = math.min(distance / 80, 2)
+            local startTime = tick()
+            while tick()-startTime < duration do
+                local alpha = (tick()-startTime)/duration
+                hrp.CFrame = CFrame.new(startPos:Lerp(savedPos, alpha))
+                RunService.RenderStepped:Wait()
+            end
+            hrp.CFrame = CFrame.new(savedPos)
+            playSound("success")
+            createNotification("✅ Teleport Complete", "You have arrived at saved position", "success", 2)
+        end)
+    else
+        hrp.CFrame = CFrame.new(savedPos)
+        playSound("success")
+        createNotification("⚡ Teleport Complete", "Instant teleport to saved position", "teleport", 2)
+    end
+end
+
+-- ===== TOGGLE MODE =====
+local function toggleMode()
+    if mode == "Smooth" then
+        mode = "Instant"
+        playSound("mode")
+        createNotification("🔄 Mode Changed", "Teleport mode: INSTANT (no delay)", "warning", 2)
+    else
+        mode = "Smooth"
+        playSound("mode")
+        createNotification("🔄 Mode Changed", "Teleport mode: SMOOTH (flying effect)", "info", 2)
+    end
+end
+
+-- ===== LEAVE FUNCTION =====
+local function leaveGame()
+    playSound("leave")
+    createNotification("👋 Goodbye", "See you next time!", "info", 2)
+    task.wait(1)
+    disableDesync()
+    me:Kick("You left the game via CocoX GUI")
+end
+
+-- ===== PAGE NAVIGATION FUNCTIONS =====
+local function refreshPage()
+    if not pageFrame or not buttons then return end
+    
+    for _, btn in pairs(buttons) do
+        if btn and btn.Parent then
+            btn:Destroy()
+        end
+    end
+    buttons = {}
+    
+    local padding = 10
+    local buttonHeight = 25
+    local startY = 25 + padding
+    
+    if currentPage == 1 then
+        -- Page 1: Main Features
+        local function createPageButton(txt, callback, soundType)
+            local b = Instance.new("TextButton", pageFrame)
+            b.Size = UDim2.new(0, 190-2*padding, 0, buttonHeight)
+            b.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            b.TextColor3 = Color3.new(1,1,1)
+            b.Font = Enum.Font.SourceSansBold
+            b.TextSize = 14
+            b.Text = txt
+            table.insert(buttons, b)
+            b.MouseButton1Click:Connect(function()
+                if soundType then
+                    playSound(soundType)
+                else
+                    playSound("click")
+                end
+                callback()
+            end)
+            return b
+        end
+        
+        createPageButton("💾 Save Pos", savePosition, "save")
+        createPageButton("🔄 Mode: " .. mode, function()
+            toggleMode()
+            buttons[2].Text = "🔄 Mode: " .. mode
+        end, "mode")
+        createPageButton("✨ Teleport", teleportToSaved, "teleport")
+        
+        desyncBtn = createPageButton("🔴 Desync: OFF", function()
+            toggleDesync()
+            if desyncActive then
+                desyncBtn.Text = "🔴 Desync: ON"
+                desyncBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+            else
+                desyncBtn.Text = "🔘 Desync: OFF"
+                desyncBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            end
+        end, "enable")
+        
+        createPageButton("🚪 Leave", leaveGame, "leave")
+        
+    elseif currentPage == 2 then
+        -- Page 2: Auto Pathing
+        local function createPageButton(txt, callback, soundType)
+            local b = Instance.new("TextButton", pageFrame)
+            b.Size = UDim2.new(0, 190-2*padding, 0, buttonHeight)
+            b.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            b.TextColor3 = Color3.new(1,1,1)
+            b.Font = Enum.Font.SourceSansBold
+            b.TextSize = 14
+            b.Text = txt
+            table.insert(buttons, b)
+            b.MouseButton1Click:Connect(function()
+                if soundType then
+                    playSound(soundType)
+                else
+                    playSound("click")
+                end
+                callback()
+            end)
+            return b
+        end
+        
+        local autoRightBtn = createPageButton("➡️ Auto Right", function()
+            toggleAutoRight()
+            if autoActive and autoDirection == "right" then
+                autoRightBtn.Text = "➡️ Auto Right (ON)"
+                autoRightBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+                autoLeftBtn.Text = "⬅️ Auto Left"
+                autoLeftBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            else
+                autoRightBtn.Text = "➡️ Auto Right"
+                autoRightBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            end
+        end, "enable")
+        
+        local autoLeftBtn = createPageButton("⬅️ Auto Left", function()
+            toggleAutoLeft()
+            if autoActive and autoDirection == "left" then
+                autoLeftBtn.Text = "⬅️ Auto Left (ON)"
+                autoLeftBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+                autoRightBtn.Text = "➡️ Auto Right"
+                autoRightBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            else
+                autoLeftBtn.Text = "⬅️ Auto Left"
+                autoLeftBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            end
+        end, "enable")
+        
+        createPageButton("⭕ Stop Auto", function()
+            stopAutoPath()
+            autoRightBtn.Text = "➡️ Auto Right"
+            autoRightBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+            autoLeftBtn.Text = "⬅️ Auto Left"
+            autoLeftBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
+        end, "disable")
+        
+        local spacer = Instance.new("Frame", pageFrame)
+        spacer.Size = UDim2.new(0, 190-2*padding, 0, buttonHeight)
+        spacer.BackgroundTransparency = 1
+        table.insert(buttons, spacer)
+        
+        createPageButton("🚪 Leave", leaveGame, "leave")
+    end
+    
+    for i, b in ipairs(buttons) do
+        b.Position = UDim2.new(0, padding, 0, startY + (i-1) * (buttonHeight + 5))
+    end
+    
+    local frameHeight = 25 + padding + (#buttons) * (buttonHeight + 5) + padding
+    pageFrame.Size = UDim2.new(0, 190, 0, frameHeight)
+end
+
+local function nextPage()
+    playSound("click")
+    currentPage = currentPage + 1
+    if currentPage > totalPages then
+        currentPage = 1
+    end
+    refreshPage()
+    createNotification("📄 Page " .. currentPage, "Switched to page " .. currentPage, "info", 1.5)
+end
+
+local function prevPage()
+    playSound("click")
+    currentPage = currentPage - 1
+    if currentPage < 1 then
+        currentPage = totalPages
+    end
+    refreshPage()
+    createNotification("📄 Page " .. currentPage, "Switched to page " .. currentPage, "info", 1.5)
+end
 
 -- ===== FULL BLACK LOADING SCREEN =====
 local originalAmbient = Lighting.Ambient
@@ -49,202 +1271,150 @@ local function startMain()
     Lighting.Ambient = originalAmbient
     Lighting.OutdoorAmbient = originalOutdoor
     blackGui:Destroy()
+    
+    detectRubberband()
 
     local gui = Instance.new("ScreenGui")
     gui.Name = "CocoX"
     gui.Parent = CoreGui
 
-    local savedPos
-    local mode = "Smooth"
-    local markerPart
-    local markerBillboard
-    local markerConnection
+    local mainFrame = Instance.new("Frame", gui)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(255,165,0)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ClipsDescendants = true
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Size = UDim2.new(0, 190, 0, 250)
+    mainFrame.Position = UDim2.new(0.5, -95, 0.5, -125)
 
-    -- ===== MAIN SQUARE WINDOW (190x190) =====
-    local frame = Instance.new("Frame", gui)
-    frame.BackgroundColor3 = Color3.fromRGB(255,165,0)
-    frame.BorderSizePixel = 0
-    frame.ClipsDescendants = true
-    frame.Active = true
-    frame.Draggable = true
-    frame.Size = UDim2.new(0,190,0,190)
-    frame.Position = UDim2.new(0.5,-95,0.5,-95)
-
-    local padding = 10
-    local buttonHeight = 25
-    local buttonSpacing = 5
-    local buttons = {}
-
-    -- Title
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1,0,0,25)
-    title.Position = UDim2.new(0,0,0,0)
+    local title = Instance.new("TextLabel", mainFrame)
+    title.Size = UDim2.new(1, 0, 0, 25)
+    title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "CocoX"
+    title.Text = "CocoX - Page 1/2"
     title.TextColor3 = Color3.new(1,1,1)
     title.Font = Enum.Font.SourceSansBold
-    title.TextSize = 18
+    title.TextSize = 16
 
-    -- Close button
-    local close = Instance.new("TextButton", frame)
-    close.Size = UDim2.new(0,20,0,20)
-    close.Position = UDim2.new(1,-25,0,5)
+    local close = Instance.new("TextButton", mainFrame)
+    close.Size = UDim2.new(0, 20, 0, 20)
+    close.Position = UDim2.new(1, -25, 0, 3)
     close.Text = "X"
     close.BackgroundColor3 = Color3.fromRGB(200,0,0)
     close.TextColor3 = Color3.new(1,1,1)
     close.MouseButton1Click:Connect(function()
+        playSound("click")
+        stopAutoPath()
+        disableDesync()
+        cleanupSavePosMarker()
+        if desyncWorldDot then desyncWorldDot:Destroy() end
         gui:Destroy()
+        if warningGui then warningGui:Destroy() end
+        createNotification("🔒 GUI Closed", "CocoX has been closed", "info", 2)
     end)
 
-    -- Toggle button for minimized GUI
+    local prevBtn = Instance.new("TextButton", mainFrame)
+    prevBtn.Size = UDim2.new(0, 60, 0, 22)
+    prevBtn.Position = UDim2.new(0, 10, 1, -30)
+    prevBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    prevBtn.TextColor3 = Color3.new(1,1,1)
+    prevBtn.Text = "◀ Prev"
+    prevBtn.TextSize = 12
+    prevBtn.Font = Enum.Font.SourceSansBold
+    prevBtn.MouseButton1Click:Connect(prevPage)
+    
+    local pageText = Instance.new("TextLabel", mainFrame)
+    pageText.Size = UDim2.new(0, 40, 0, 22)
+    pageText.Position = UDim2.new(0.5, -20, 1, -30)
+    pageText.BackgroundTransparency = 1
+    pageText.Text = "1/2"
+    pageText.TextColor3 = Color3.new(1,1,1)
+    pageText.TextSize = 12
+    pageText.Font = Enum.Font.SourceSansBold
+    
+    local nextBtn = Instance.new("TextButton", mainFrame)
+    nextBtn.Size = UDim2.new(0, 60, 0, 22)
+    nextBtn.Position = UDim2.new(1, -70, 1, -30)
+    nextBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    nextBtn.TextColor3 = Color3.new(1,1,1)
+    nextBtn.Text = "Next ▶"
+    nextBtn.TextSize = 12
+    nextBtn.Font = Enum.Font.SourceSansBold
+    nextBtn.MouseButton1Click:Connect(nextPage)
+    
+    local originalRefresh = refreshPage
+    refreshPage = function()
+        originalRefresh()
+        pageText.Text = currentPage .. "/" .. totalPages
+        title.Text = "CocoX - Page " .. currentPage .. "/" .. totalPages
+    end
+
+    pageFrame = Instance.new("Frame", mainFrame)
+    pageFrame.Size = UDim2.new(1, 0, 1, -55)
+    pageFrame.Position = UDim2.new(0, 0, 0, 28)
+    pageFrame.BackgroundTransparency = 1
+    
     local toggleBtn = Instance.new("TextButton", gui)
-    toggleBtn.Size = UDim2.new(0,30,0,30)
-    toggleBtn.Position = UDim2.new(0.5,-15,0.5,-15)
+    toggleBtn.Size = UDim2.new(0, 30, 0, 30)
+    toggleBtn.Position = UDim2.new(0.5, -15, 0.5, -15)
     toggleBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
     toggleBtn.Text = "^"
     toggleBtn.TextColor3 = Color3.new(1,1,1)
     toggleBtn.Visible = false
     toggleBtn.MouseButton1Click:Connect(function()
+        playSound("click")
         toggleBtn.Visible = false
-        frame.Visible = true
+        mainFrame.Visible = true
     end)
-
-    -- Marker ball function
-    local function createMarker(pos)
-        if markerPart then markerPart:Destroy() end
-        if markerConnection then markerConnection:Disconnect() end
-
-        markerPart = Instance.new("Part")
-        markerPart.Shape = Enum.PartType.Ball
-        markerPart.Size = Vector3.new(2,2,2)
-        markerPart.Material = Enum.Material.Neon
-        markerPart.Color = Color3.fromRGB(255,255,255)
-        markerPart.Anchored = true
-        markerPart.CanCollide = false
-        markerPart.Position = pos
-        markerPart.Parent = Workspace
-
-        markerBillboard = Instance.new("BillboardGui", markerPart)
-        markerBillboard.Size = UDim2.new(0,120,0,40)
-        markerBillboard.StudsOffset = Vector3.new(0,3,0)
-        markerBillboard.AlwaysOnTop = true
-
-        local label = Instance.new("TextLabel", markerBillboard)
-        label.Size = UDim2.new(1,0,1,0)
-        label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.new(1,1,1)
-        label.TextStrokeTransparency = 0
-        label.Font = Enum.Font.SourceSansBold
-        label.TextScaled = true
-
-        markerConnection = RunService.RenderStepped:Connect(function()
-            local char = me.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local dist = (char.HumanoidRootPart.Position - markerPart.Position).Magnitude
-                label.Text = "Distance: "..math.floor(dist)
+    
+    refreshPage()
+    
+    local function checkMinimize()
+        if mainFrame.Position.X.Offset < -150 or mainFrame.Position.X.Offset > 500 then
+            mainFrame.Visible = false
+            toggleBtn.Visible = true
+            toggleBtn.Position = UDim2.new(0, mainFrame.Position.X.Offset + 80, 0, mainFrame.Position.Y.Offset + 60)
+        end
+    end
+    
+    mainFrame:GetPropertyChangedSignal("Position"):Connect(checkMinimize)
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == Enum.KeyCode.F6 then
+            toggleDesync()
+            if desyncActive and desyncBtn then
+                desyncBtn.Text = "🔴 Desync: ON"
+                desyncBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+            elseif desyncBtn then
+                desyncBtn.Text = "🔘 Desync: OFF"
+                desyncBtn.BackgroundColor3 = Color3.fromRGB(255,140,0)
             end
-        end)
-    end
-
-    -- Teleport function (now allows free movement)
-    local function teleportToSaved(pos)
-        local char = me.Character
-        if not char then return end
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-
-        if mode == "Smooth" then
-            spawn(function()
-                local startPos = hrp.Position
-                local distance = (pos - startPos).Magnitude
-                local duration = distance / 80
-                local startTime = tick()
-                while tick()-startTime < duration do
-                    local alpha = (tick()-startTime)/duration
-                    hrp.CFrame = CFrame.new(startPos:Lerp(pos, alpha))
-                    RunService.RenderStepped:Wait()
-                end
-                hrp.CFrame = CFrame.new(pos)
-            end)
-        else
-            hrp.CFrame = CFrame.new(pos)
-        end
-    end
-
-    -- Button creator
-    local function button(txt,callback)
-        local b = Instance.new("TextButton", frame)
-        b.Size = UDim2.new(0,190-2*padding,0,buttonHeight)
-        b.BackgroundColor3 = Color3.fromRGB(255,140,0)
-        b.TextColor3 = Color3.new(1,1,1)
-        b.Font = Enum.Font.SourceSansBold
-        b.TextSize = 14
-        b.Text = txt
-        table.insert(buttons,b)
-        b.MouseButton1Click:Connect(callback)
-    end
-
-    -- ===== ADD BUTTONS IN ORDER =====
-    button("Save Pos", function()
-        local char = me.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            savedPos = char.HumanoidRootPart.Position
-            createMarker(savedPos)
         end
     end)
-
-    button("Toggle Mode: "..mode, function()
-        if mode == "Smooth" then
-            mode = "Instant"
-        else
-            mode = "Smooth"
-        end
-        buttons[2].Text = "Toggle Mode: "..mode
-    end)
-
-    button("Teleport", function()
-        if savedPos then
-            teleportToSaved(savedPos)
-        end
-    end)
-
-    button("Leave", function()
-        me:Kick("You left the game via CocoX GUI")
-    end)
-
-    -- Position buttons vertically
-    for i,b in ipairs(buttons) do
-        b.Position = UDim2.new(0,padding,0,25 + padding + (i-1)*(buttonHeight + 5))
-    end
-
-    -- Adjust frame height to fit buttons
-    local frameHeight = 25 + padding + (#buttons)*(buttonHeight + 5) + padding
-    frame.Size = UDim2.new(0,190,0,frameHeight)
-    frame.Position = UDim2.new(0.5,-95,0.5,-frameHeight/2)
+    
+    createNotification("🎮 CocoX Loaded", "Page 1: Main | Page 2: Auto Path | Press F6 for Desync", "success", 5)
 end
 
--- ===== LOADING SEQUENCE WITH ANIMATED DOTS =====
+-- ===== LOADING SEQUENCE =====
 task.spawn(function()
-    local messages = {"This was made by CocoX", "I hope you have fun", "Version 9", "If you paid for This you got Scammed"}
+    local messages = {"This was made by CocoX", "I hope you have fun", "Version 14", "If you paid for This you got Scammed"}
     
-    for _,msg in ipairs(messages) do
+    for _, msg in ipairs(messages) do
         text.Text = msg
         task.wait(2)
     end
 
-    -- Animated Loading...
     local dots = 0
     local totalTime = 3
     local startTime = tick()
     while tick() - startTime < totalTime do
         dots = dots % 3 + 1
-        text.Text = "Loading"..string.rep(".", dots)
+        text.Text = "Loading" .. string.rep(".", dots)
         task.wait(0.5)
     end
 
-    -- Fade out
-    TweenService:Create(bg, TweenInfo.new(1), {BackgroundTransparency=1}):Play()
-    TweenService:Create(text, TweenInfo.new(1), {TextTransparency=1}):Play()
+    TweenService:Create(bg, TweenInfo.new(1), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(text, TweenInfo.new(1), {TextTransparency = 1}):Play()
     task.wait(1)
 
     startMain()
