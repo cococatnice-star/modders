@@ -1,122 +1,741 @@
-local runService = game:GetService("RunService")
-local localPlayer = game:GetService("Players").LocalPlayer
-local playerGui = localPlayer:WaitForChild("PlayerGui")
+-- Services
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 
-local desyncT = {
-   enabled = true,
-   loc = CFrame.new()
-}
+local me = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
 
--- // GUI
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "DesyncGUI"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
+-- ===== VARIABLES =====
+local desyncActive = false
+local currentMethod = "None"
+local statusMessage = "Ready"
+local statusColor = Color3.fromRGB(255, 165, 0)
+local desyncWorldDot = nil
+local desyncBillboard = nil
+local desyncDistanceLabel = nil
+local lastServerPos = nil
+local rubberbandCount = 0
+local dotUpdateConnection = nil
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 110, 0, 35)
-button.Position = UDim2.new(0, 10, 0.5, -20)
-button.Text = "Desync: ON"
-button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-button.TextColor3 = Color3.new(1,1,1)
-button.BorderSizePixel = 0
-button.Parent = screenGui
-
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = button
-
--- Toggle
-button.MouseButton1Click:Connect(function()
-    desyncT.enabled = not desyncT.enabled
-    button.Text = desyncT.enabled and "Desync: ON" or "Desync: OFF"
-end)
-
--- Dragging
-local dragging = false
-local dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    button.Position = UDim2.new(
-        startPos.X.Scale,
-        startPos.X.Offset + delta.X,
-        startPos.Y.Scale,
-        startPos.Y.Offset + delta.Y
-    )
+-- ===== CREATE WHITE BALL (Same as CocoX TP) =====
+local function createWhiteBall(position, name)
+    local ball = Instance.new("Part")
+    ball.Name = name or "DesyncMarker"
+    ball.Shape = Enum.PartType.Ball
+    ball.Size = Vector3.new(2.5, 2.5, 2.5)
+    ball.Material = Enum.Material.Neon
+    ball.Color = Color3.fromRGB(255, 255, 255)
+    ball.Anchored = true
+    ball.CanCollide = false
+    ball.CastShadow = false
+    ball.Transparency = 0
+    ball.Position = position
+    ball.Parent = Workspace
+    
+    -- X-Ray effect (visible through walls)
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.2
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Parent = ball
+    
+    -- Billboard with distance
+    local billboard = Instance.new("BillboardGui", ball)
+    billboard.Size = UDim2.new(0, 80, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    
+    local distanceNumber = Instance.new("TextLabel", billboard)
+    distanceNumber.Size = UDim2.new(1, 0, 1, 0)
+    distanceNumber.BackgroundTransparency = 1
+    distanceNumber.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distanceNumber.TextStrokeTransparency = 0
+    distanceNumber.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceNumber.Font = Enum.Font.GothamBold
+    distanceNumber.TextScaled = true
+    distanceNumber.Text = "0"
+    
+    return ball, billboard, distanceNumber, highlight
 end
 
-button.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = button.Position
+-- ===== UPDATE BALL POSITION =====
+local function updateBallPosition()
+    if not desyncWorldDot then return end
+    if lastServerPos then
+        desyncWorldDot.Position = lastServerPos
+    end
+end
 
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+-- ===== UPDATE DISTANCE TEXT =====
+local function updateDistanceText()
+    if not desyncWorldDot or not desyncDistanceLabel then return end
+    
+    local char = me.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local dist = (char.HumanoidRootPart.Position - desyncWorldDot.Position).Magnitude
+        desyncDistanceLabel.Text = math.floor(dist) .. " studs"
+        
+        if dist > 15 then
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+        elseif dist > 8 then
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 200, 80)
+        else
+            desyncDistanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+    end
+end
+
+-- ===== DETECT RUBBERBAND/LAG-BACK =====
+local function detectRubberband()
+    local lastPosition = nil
+    local lastTime = tick()
+    
+    spawn(function()
+        while true do
+            task.wait(0.05)
+            
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local currentPos = char.HumanoidRootPart.Position
+                
+                if lastPosition then
+                    local distance = (currentPos - lastPosition).Magnitude
+                    local timeDiff = tick() - lastTime
+                    
+                    if distance > 15 and timeDiff < 0.15 and desyncActive then
+                        rubberbandCount = rubberbandCount + 1
+                        
+                        -- Update server position to rubberband spot
+                        lastServerPos = currentPos
+                        
+                        if desyncWorldDot then
+                            desyncWorldDot.Position = currentPos
+                            
+                            -- Flash effect
+                            local original = desyncWorldDot.Color
+                            desyncWorldDot.Color = Color3.fromRGB(255, 100, 0)
+                            task.wait(0.05)
+                            desyncWorldDot.Color = Color3.fromRGB(255, 255, 0)
+                            task.wait(0.05)
+                            desyncWorldDot.Color = original
+                        end
+                        
+                        -- Update status
+                        updateStatus("Rubberband #" .. rubberbandCount, Color3.fromRGB(255, 165, 0))
+                        
+                        task.wait(0.3)
+                    end
+                end
+                
+                lastPosition = currentPos
+                lastTime = tick()
+            else
+                lastPosition = nil
+                task.wait(0.5)
+            end
+        end
+    end)
+end
+
+-- ===== CREATE MAIN GUI =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CocoXDesync"
+screenGui.Parent = CoreGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- ===== TOP LEFT STATUS DISPLAY =====
+local statusFrame = Instance.new("Frame")
+statusFrame.Name = "StatusFrame"
+statusFrame.Size = UDim2.new(0, 240, 0, 65)
+statusFrame.Position = UDim2.new(0, 10, 0, 10)
+statusFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+statusFrame.BackgroundTransparency = 0.1
+statusFrame.BorderSizePixel = 0
+statusFrame.Parent = screenGui
+
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 8)
+statusCorner.Parent = statusFrame
+
+-- Status title
+local statusTitle = Instance.new("TextLabel")
+statusTitle.Size = UDim2.new(1, -10, 0, 18)
+statusTitle.Position = UDim2.new(0, 5, 0, 4)
+statusTitle.BackgroundTransparency = 1
+statusTitle.Text = "CocoX Desync"
+statusTitle.TextColor3 = Color3.fromRGB(255, 165, 0)
+statusTitle.TextSize = 12
+statusTitle.Font = Enum.Font.GothamBold
+statusTitle.TextXAlignment = Enum.TextXAlignment.Left
+statusTitle.Parent = statusFrame
+
+-- Status message
+local statusText = Instance.new("TextLabel")
+statusText.Size = UDim2.new(1, -10, 0, 20)
+statusText.Position = UDim2.new(0, 5, 0, 22)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Status: Ready"
+statusText.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusText.TextSize = 11
+statusText.Font = Enum.Font.Gotham
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+statusText.Parent = statusFrame
+
+-- Distance display in status
+local distanceStatus = Instance.new("TextLabel")
+distanceStatus.Size = UDim2.new(1, -10, 0, 16)
+distanceStatus.Position = UDim2.new(0, 5, 0, 44)
+distanceStatus.BackgroundTransparency = 1
+distanceStatus.Text = "Distance: 0 studs"
+distanceStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+distanceStatus.TextSize = 10
+distanceStatus.Font = Enum.Font.Gotham
+distanceStatus.TextXAlignment = Enum.TextXAlignment.Left
+distanceStatus.Parent = statusFrame
+
+-- ===== UPDATE STATUS FUNCTION =====
+local function updateStatus(message, color)
+    statusText.Text = "Status: " .. message
+    if color then
+        statusText.TextColor3 = color
+    end
+end
+
+-- ===== MOVABLE GUI (Small Window) =====
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 150, 0, 210)
+mainFrame.Position = UDim2.new(0, 260, 0, 10)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+mainFrame.BackgroundTransparency = 0.05
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 28)
+titleBar.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+titleBar.BackgroundTransparency = 0.2
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleBar
+
+-- Title text
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -30, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "CocoX Desync"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextSize = 12
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 20, 0, 20)
+closeBtn.Position = UDim2.new(1, -24, 0, 4)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 12
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 4)
+closeCorner.Parent = closeBtn
+
+-- Status indicator (small dot)
+local statusDot = Instance.new("Frame")
+statusDot.Size = UDim2.new(0, 8, 0, 8)
+statusDot.Position = UDim2.new(0, 10, 0, 42)
+statusDot.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+statusDot.BackgroundTransparency = 0
+statusDot.BorderSizePixel = 0
+statusDot.Parent = mainFrame
+
+local dotCorner = Instance.new("UICorner")
+dotCorner.CornerRadius = UDim.new(1, 0)
+dotCorner.Parent = statusDot
+
+-- Status label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -25, 0, 20)
+statusLabel.Position = UDim2.new(0, 25, 0, 38)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "Desync: OFF"
+statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = mainFrame
+
+-- Method label
+local methodLabel = Instance.new("TextLabel")
+methodLabel.Size = UDim2.new(1, -15, 0, 16)
+methodLabel.Position = UDim2.new(0, 10, 0, 60)
+methodLabel.BackgroundTransparency = 1
+methodLabel.Text = "Method: None"
+methodLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+methodLabel.TextSize = 10
+methodLabel.Font = Enum.Font.Gotham
+methodLabel.TextXAlignment = Enum.TextXAlignment.Left
+methodLabel.Parent = mainFrame
+
+-- Rubberband counter
+local rubberbandLabel = Instance.new("TextLabel")
+rubberbandLabel.Size = UDim2.new(1, -15, 0, 16)
+rubberbandLabel.Position = UDim2.new(0, 10, 0, 78)
+rubberbandLabel.BackgroundTransparency = 1
+rubberbandLabel.Text = "Lag-backs: 0"
+rubberbandLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+rubberbandLabel.TextSize = 10
+rubberbandLabel.Font = Enum.Font.Gotham
+rubberbandLabel.TextXAlignment = Enum.TextXAlignment.Left
+rubberbandLabel.Parent = mainFrame
+
+-- ===== BUTTONS =====
+local buttonY = 100
+local buttonHeight = 28
+local buttonSpacing = 5
+
+-- Desync Toggle Button
+local desyncBtn = Instance.new("TextButton")
+desyncBtn.Size = UDim2.new(0, 130, 0, buttonHeight)
+desyncBtn.Position = UDim2.new(0.5, -65, 0, buttonY)
+desyncBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+desyncBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+desyncBtn.Text = "ENABLE DESYNC"
+desyncBtn.TextSize = 11
+desyncBtn.Font = Enum.Font.GothamBold
+desyncBtn.Parent = mainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.Parent = desyncBtn
+
+-- Hover effects
+desyncBtn.MouseEnter:Connect(function()
+    TweenService:Create(desyncBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 160, 40)}):Play()
+end)
+desyncBtn.MouseLeave:Connect(function()
+    if desyncActive then
+        TweenService:Create(desyncBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 150, 50)}):Play()
+    else
+        TweenService:Create(desyncBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 140, 0)}):Play()
+    end
+end)
+
+-- Reset Counter Button
+local resetBtn = Instance.new("TextButton")
+resetBtn.Size = UDim2.new(0, 130, 0, 24)
+resetBtn.Position = UDim2.new(0.5, -65, 0, buttonY + buttonHeight + 5)
+resetBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+resetBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+resetBtn.Text = "Reset Counter"
+resetBtn.TextSize = 10
+resetBtn.Font = Enum.Font.GothamBold
+resetBtn.Parent = mainFrame
+
+local resetCorner = Instance.new("UICorner")
+resetCorner.CornerRadius = UDim.new(0, 6)
+resetCorner.Parent = resetBtn
+
+-- ===== DESYNC METHODS =====
+local function tryDesyncMethod1()
+    if raknet and raknet.desync then
+        local success = pcall(function()
+            raknet.desync(true)
+            if raknet.setping then raknet.setping(9999) end
+            if raknet.blockpacket then raknet.blockpacket(0x83, true) end
+        end)
+        if success then
+            currentMethod = "RakNet.desync"
+            return true
+        end
+    end
+    return false
+end
+
+local function tryDesyncMethod2()
+    if raknet and raknet.hook then
+        local success = pcall(function()
+            raknet.hook(true)
+        end)
+        if success then
+            currentMethod = "RakNet.hook"
+            return true
+        end
+    end
+    return false
+end
+
+local function tryDesyncMethod3()
+    if Desync and Desync.hook then
+        local success = pcall(function()
+            Desync.hook(true)
+        end)
+        if success then
+            currentMethod = "Desync.hook"
+            return true
+        end
+    end
+    return false
+end
+
+local function tryDesyncMethod4()
+    if raknet and raknet.send then
+        local success = pcall(function()
+            raknet.send(0x83, "desync_payload")
+        end)
+        if success then
+            currentMethod = "RakNet.send"
+            return true
+        end
+    end
+    return false
+end
+
+local function tryDesyncMethod5()
+    local success = pcall(function()
+        local network = game:GetService("NetworkClient")
+        if network and network.SetSimulationRadius then
+            network:SetSimulationRadius(0)
+        end
+    end)
+    if success then
+        currentMethod = "Network Manipulation"
+        return true
+    end
+    return false
+end
+
+-- ===== ENABLE DESYNC WITH FALLBACKS =====
+local function enableDesync()
+    if desyncActive then
+        updateStatus("Already enabled", Color3.fromRGB(255, 165, 0))
+        return true
+    end
+    
+    updateStatus("Trying methods...", Color3.fromRGB(255, 200, 0))
+    statusDot.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+    
+    -- Freeze current position as server position
+    local char = me.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        lastServerPos = char.HumanoidRootPart.Position
+    end
+    
+    -- Try each method in order
+    local success = false
+    
+    if tryDesyncMethod1() then
+        success = true
+    elseif tryDesyncMethod2() then
+        success = true
+    elseif tryDesyncMethod3() then
+        success = true
+    elseif tryDesyncMethod4() then
+        success = true
+    elseif tryDesyncMethod5() then
+        success = true
+    end
+    
+    if success then
+        desyncActive = true
+        rubberbandCount = 0
+        
+        -- Create white ball at server position
+        if lastServerPos then
+            desyncWorldDot, desyncBillboard, desyncDistanceLabel = createWhiteBall(lastServerPos, "DesyncMarker")
+        end
+        
+        -- Start update loop
+        dotUpdateConnection = RunService.RenderStepped:Connect(function()
+            updateBallPosition()
+            updateDistanceText()
+            
+            -- Update distance in status
+            if desyncWorldDot and char and char:FindFirstChild("HumanoidRootPart") then
+                local dist = (char.HumanoidRootPart.Position - desyncWorldDot.Position).Magnitude
+                distanceStatus.Text = "Distance: " .. math.floor(dist) .. " studs"
+                if dist > 15 then
+                    distanceStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+                elseif dist > 8 then
+                    distanceStatus.TextColor3 = Color3.fromRGB(255, 200, 80)
+                else
+                    distanceStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+                end
             end
         end)
-    end
-end)
-
-button.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement
-    or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
--- // WHITE DOT (desync position indicator)
-local dot = Instance.new("Part")
-dot.Size = Vector3.new(0.5, 0.5, 0.5)
-dot.Shape = Enum.PartType.Ball
-dot.Material = Enum.Material.Neon
-dot.Color = Color3.new(1,1,1)
-dot.Anchored = true
-dot.CanCollide = false
-dot.Name = "DesyncDot"
-dot.Parent = workspace
-
--- // DESYNC LOOP (your code + dot update)
-runService.Heartbeat:Connect(function()
-    if desyncT.enabled and localPlayer.Character then
-        local character = localPlayer.Character
-        local root = character:FindFirstChild("HumanoidRootPart")
-        if root then
-            desyncT.loc = root.CFrame -- setting the real cframe to where we are
-            local newCframe = desyncT.loc -- storing the actual cframe
-            newCframe = newCframe * CFrame.new(0, -5, 0) -- moving our player down 5 studs (via the desync)
-            root.CFrame = newCframe -- setting our root cframe to the new cframe we made (no u will not be able to see this on ur client)
-            runService.RenderStepped:Wait() -- waiitiititt
-            root.CFrame = desyncT.loc -- reset our players cframe back to where we were beforehand
-
-            -- move dot to fake position
-            dot.Position = newCframe.Position
-            dot.Transparency = 0
-
-            root.CFrame = newCframe
-            runService.RenderStepped:Wait()
-            root.CFrame = desyncT.loc
+        
+        statusLabel.Text = "Desync: ON"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+        methodLabel.Text = "Method: " .. currentMethod
+        methodLabel.TextColor3 = Color3.fromRGB(0, 255, 100)
+        rubberbandLabel.Text = "Lag-backs: 0"
+        rubberbandLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        desyncBtn.Text = "DISABLE DESYNC"
+        desyncBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 50)
+        statusDot.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+        updateStatus("Active - " .. currentMethod, Color3.fromRGB(0, 255, 100))
+        
+        -- Freeze character movement
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = 0
+            char.Humanoid.JumpPower = 0
         end
+        
+        return true
     else
-        dot.Transparency = 1 -- hide when off
+        -- ALL METHODS FAILED
+        updateStatus("FAILED - No method available", Color3.fromRGB(255, 50, 50))
+        statusLabel.Text = "Desync: ERROR"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        methodLabel.Text = "Method: None"
+        methodLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+        statusDot.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        
+        -- Create error message on top left (blinking)
+        local errorFrame = Instance.new("Frame")
+        errorFrame.Size = UDim2.new(0, 250, 0, 40)
+        errorFrame.Position = UDim2.new(0, 10, 0, 80)
+        errorFrame.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+        errorFrame.BackgroundTransparency = 0.2
+        errorFrame.BorderSizePixel = 0
+        errorFrame.Parent = screenGui
+        
+        local errorCorner = Instance.new("UICorner")
+        errorCorner.CornerRadius = UDim.new(0, 6)
+        errorCorner.Parent = errorFrame
+        
+        local errorText = Instance.new("TextLabel")
+        errorText.Size = UDim2.new(1, -10, 1, 0)
+        errorText.Position = UDim2.new(0, 5, 0, 0)
+        errorText.BackgroundTransparency = 1
+        errorText.Text = "⚠️ Desync Failed - No method available!"
+        errorText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        errorText.TextSize = 11
+        errorText.Font = Enum.Font.GothamBold
+        errorText.TextXAlignment = Enum.TextXAlignment.Left
+        errorText.Parent = errorFrame
+        
+        -- Blink effect
+        local blink = true
+        local blinkConnection
+        blinkConnection = RunService.RenderStepped:Connect(function()
+            blink = not blink
+            if blink then
+                errorFrame.BackgroundTransparency = 0.2
+            else
+                errorFrame.BackgroundTransparency = 0.6
+            end
+        end)
+        
+        -- Auto remove after 5 seconds
+        task.spawn(function()
+            task.wait(5)
+            if blinkConnection then blinkConnection:Disconnect() end
+            errorFrame:Destroy()
+        end)
+        
+        return false
+    end
+end
+
+-- ===== DISABLE DESYNC =====
+local function disableDesync()
+    if not desyncActive then return end
+    
+    -- Try all disable methods
+    if raknet and raknet.desync then
+        pcall(function() raknet.desync(false) end)
+    end
+    if raknet and raknet.hook then
+        pcall(function() raknet.hook(false) end)
+    end
+    if Desync and Desync.hook then
+        pcall(function() Desync.hook(false) end)
+    end
+    if raknet and raknet.setping then
+        pcall(function() raknet.setping(nil) end)
+    end
+    if raknet and raknet.blockpacket then
+        pcall(function() raknet.blockpacket(0x83, false) end)
+    end
+    pcall(function()
+        local network = game:GetService("NetworkClient")
+        if network and network.SetSimulationRadius then
+            network:SetSimulationRadius(16)
+        end
+    end)
+    
+    desyncActive = false
+    
+    -- Remove white ball
+    if desyncWorldDot then
+        desyncWorldDot:Destroy()
+        desyncWorldDot = nil
+    end
+    
+    if dotUpdateConnection then
+        dotUpdateConnection:Disconnect()
+        dotUpdateConnection = nil
+    end
+    
+    statusLabel.Text = "Desync: OFF"
+    statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    methodLabel.Text = "Method: " .. currentMethod
+    methodLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    desyncBtn.Text = "ENABLE DESYNC"
+    desyncBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+    statusDot.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+    distanceStatus.Text = "Distance: 0 studs"
+    distanceStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+    updateStatus("Disabled", Color3.fromRGB(255, 165, 0))
+    
+    -- Restore character movement
+    local char = me.Character
+    if char and char:FindFirstChild("Humanoid") then
+        char.Humanoid.WalkSpeed = 16
+        char.Humanoid.JumpPower = 50
+    end
+end
+
+-- ===== RESET RUBBERBAND COUNTER =====
+local function resetCounter()
+    rubberbandCount = 0
+    rubberbandLabel.Text = "Lag-backs: 0"
+    updateStatus("Counter reset", Color3.fromRGB(255, 165, 0))
+end
+
+-- ===== TOGGLE DESYNC =====
+local function toggleDesync()
+    if desyncActive then
+        disableDesync()
+    else
+        enableDesync()
+    end
+end
+
+-- ===== BUTTON CLICKS =====
+desyncBtn.MouseButton1Click:Connect(function()
+    toggleDesync()
+end)
+
+resetBtn.MouseButton1Click:Connect(function()
+    resetCounter()
+end)
+
+-- ===== CLOSE BUTTON =====
+closeBtn.MouseButton1Click:Connect(function()
+    disableDesync()
+    screenGui:Destroy()
+end)
+
+-- ===== HOTKEY (F6) =====
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F6 then
+        toggleDesync()
     end
 end)
 
--- // HOOK (unchanged)
-local desynchook = nil
-desynchook = hookmetamethod(game, "__index", newcclosure(function(self, key)
-    if desyncT.enabled and not checkcaller() and key == "CFrame" and localPlayer.Character and self == localPlayer.Character.HumanoidRootPart then
-        return desyncT.loc
-    end
-    return desynchook(self, key)
-end))
+-- ===== RUBBERBAND DETECTION LOOP =====
+local function startRubberbandDetection()
+    local lastPosition = nil
+    local lastTime = tick()
+    
+    spawn(function()
+        while true do
+            task.wait(0.05)
+            
+            local char = me.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local currentPos = char.HumanoidRootPart.Position
+                
+                if lastPosition and desyncActive then
+                    local distance = (currentPos - lastPosition).Magnitude
+                    local timeDiff = tick() - lastTime
+                    
+                    if distance > 15 and timeDiff < 0.15 then
+                        rubberbandCount = rubberbandCount + 1
+                        rubberbandLabel.Text = "Lag-backs: " .. rubberbandCount
+                        
+                        -- Update server position to rubberband spot
+                        lastServerPos = currentPos
+                        
+                        if desyncWorldDot then
+                            desyncWorldDot.Position = currentPos
+                            
+                            -- Flash effect
+                            local original = desyncWorldDot.Color
+                            desyncWorldDot.Color = Color3.fromRGB(255, 100, 0)
+                            task.wait(0.05)
+                            desyncWorldDot.Color = Color3.fromRGB(255, 255, 0)
+                            task.wait(0.05)
+                            desyncWorldDot.Color = original
+                        end
+                        
+                        updateStatus("Lag-back #" .. rubberbandCount, Color3.fromRGB(255, 165, 0))
+                        task.wait(0.3)
+                    end
+                end
+                
+                lastPosition = currentPos
+                lastTime = tick()
+            else
+                lastPosition = nil
+                task.wait(0.5)
+            end
+        end
+    end)
+end
+
+-- ===== UPDATE LOOP FOR DISTANCE =====
+local function startDistanceUpdate()
+    spawn(function()
+        while screenGui and screenGui.Parent do
+            task.wait(0.2)
+            
+            if desyncActive and desyncWorldDot then
+                local char = me.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local dist = (char.HumanoidRootPart.Position - desyncWorldDot.Position).Magnitude
+                    distanceStatus.Text = "Distance: " .. math.floor(dist) .. " studs"
+                    
+                    if dist > 15 then
+                        distanceStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    elseif dist > 8 then
+                        distanceStatus.TextColor3 = Color3.fromRGB(255, 200, 80)
+                    else
+                        distanceStatus.TextColor3 = Color3.fromRGB(150, 150, 150)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ===== INITIAL STATUS =====
+updateStatus("Ready - Press F6 or click button", Color3.fromRGB(255, 165, 0))
+startRubberbandDetection()
+startDistanceUpdate()
+
+print("CocoX Desync GUI Loaded - Small movable window with white ball and lag-back tracking")
