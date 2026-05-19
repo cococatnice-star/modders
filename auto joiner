@@ -1,6 +1,6 @@
 -- ============================================
 -- COCOX BRAINROT RECEIVER V3.6
--- UNIVERSAL SAVE/LOAD - Works on ALL executors
+-- FIXED JOIN BUTTON
 -- Press E to toggle | Orange Theme
 -- ============================================
 
@@ -13,148 +13,27 @@ local CoreGui          = game:GetService("CoreGui")
 local API_URL       = "https://cocoxnotifier.replit.app/api/messages/roblox"
 local POLL_INTERVAL = 3
 
--- ============================================
--- UNIVERSAL FILE FUNCTIONS (Works on ALL Executors)
--- ============================================
 local SAVE_FILE = "CocoX_Filters.txt"
-
--- Detect available file functions
 local hasWriteFile = writefile ~= nil
-local hasReadFile = readfile ~= nil
-local hasIsFile = isfile ~= nil
-local hasAppendFile = appendfile ~= nil
+local hasReadFile  = readfile ~= nil
+local hasIsFile    = isfile ~= nil
 
--- Fallback using syn functions if available
 local function UniversalWriteFile(path, content)
-    if hasWriteFile then
-        writefile(path, content)
-        return true
-    elseif syn and syn.writefile then
-        syn.writefile(path, content)
-        return true
-    elseif secure_load and secure_load.writefile then
-        secure_load.writefile(path, content)
-        return true
-    else
-        return false
-    end
+    if hasWriteFile then writefile(path, content); return true
+    elseif syn and syn.writefile then syn.writefile(path, content); return true
+    else return false end
 end
-
 local function UniversalReadFile(path)
-    if hasReadFile then
-        return readfile(path)
-    elseif syn and syn.readfile then
-        return syn.readfile(path)
-    elseif secure_load and secure_load.readfile then
-        return secure_load.readfile(path)
-    else
-        return nil
-    end
+    if hasReadFile then return readfile(path)
+    elseif syn and syn.readfile then return syn.readfile(path)
+    else return nil end
 end
-
 local function UniversalFileExists(path)
-    if hasIsFile then
-        return isfile(path)
-    elseif syn and syn.isfile then
-        return syn.isfile(path)
-    elseif secure_load and secure_load.isfile then
-        return secure_load.isfile(path)
-    else
-        return false
-    end
+    if hasIsFile then return isfile(path)
+    elseif syn and syn.isfile then return syn.isfile(path)
+    else return false end
 end
 
--- Get workspace path for display
-local function GetWorkspacePath()
-    if syn and syn.getexecutorname then
-        return syn.getexecutorname() .. " workspace"
-    elseif getexecutorname then
-        return getexecutorname() .. " workspace"
-    else
-        return "executor workspace"
-    end
-end
-
--- ============================================
--- SAVE/LOAD FUNCTIONS
--- ============================================
-local function SaveFilters()
-    local filtersToSave = {}
-    for name, selected in pairs(SelectedFilters) do
-        if selected then
-            table.insert(filtersToSave, name)
-        end
-    end
-    
-    local data = {
-        selected = filtersToSave,
-        showAll = ShowAll,
-        version = 2,
-        savedAt = os.date("%Y-%m-%d %H:%M:%S")
-    }
-    
-    local success, err = pcall(function()
-        local json = HttpService:JSONEncode(data)
-        UniversalWriteFile(SAVE_FILE, json)
-    end)
-    
-    if success then
-        StatusLabel.Text = "💾 Saved " .. #filtersToSave .. " filters!"
-        print("[CocoX] ✅ Saved " .. #filtersToSave .. " filters to " .. SAVE_FILE)
-        print("[CocoX] 📁 Location: " .. GetWorkspacePath())
-        task.wait(1.5)
-        StatusLabel.Text = "🟢 Live"
-    else
-        print("[CocoX] ❌ Failed to save filters:", err)
-        StatusLabel.Text = "❌ Save failed!"
-        task.wait(1.5)
-        StatusLabel.Text = "🟢 Live"
-    end
-end
-
-local function LoadFilters()
-    local success, data = pcall(function()
-        if not UniversalFileExists(SAVE_FILE) then
-            return nil
-        end
-        local content = UniversalReadFile(SAVE_FILE)
-        if not content or content == "" then
-            return nil
-        end
-        return HttpService:JSONDecode(content)
-    end)
-    
-    if success and data then
-        -- Clear existing filters
-        for name in pairs(SelectedFilters) do
-            SelectedFilters[name] = nil
-        end
-        
-        if data.selected then
-            for _, name in ipairs(data.selected) do
-                SelectedFilters[name] = true
-            end
-        end
-        if data.showAll ~= nil then
-            ShowAll = data.showAll
-        else
-            ShowAll = (#data.selected or 0) == 0
-        end
-        
-        print("[CocoX] ✅ Loaded " .. (#data.selected or 0) .. " filters from " .. SAVE_FILE)
-        if data.savedAt then
-            print("[CocoX] 📅 Saved on: " .. data.savedAt)
-        end
-        return true
-    else
-        print("[CocoX] 📭 No save file found, using defaults")
-        return false
-    end
-end
-
--- ============================================
--- COLORS
--- ============================================
 local Colors = {
     Primary      = Color3.fromRGB(255,140,0),
     PrimaryDark  = Color3.fromRGB(200,100,0),
@@ -169,164 +48,145 @@ local Colors = {
     Rainbow      = Color3.fromRGB(255,100,255),
 }
 
--- ============================================
--- COMPLETE BRAINROT DATABASE
--- ============================================
 local BrainrotDatabase = {
     Common = {
-        "Noobini Pizzanini", "Lirilì Larilà", "Tim Cheese", "Fluriflura", "Talpa Di Fero",
-        "Noobini Santanini", "Svinina Bombardino", "Raccooni Jandelini", "Pipi Kiwi",
-        "Tartaragno", "Pipi Corni", "Holy Arepa"
+        "Noobini Pizzanini","Lirilì Larilà","Tim Cheese","Fluriflura","Talpa Di Fero",
+        "Noobini Santanini","Svinina Bombardino","Raccooni Jandelini","Pipi Kiwi",
+        "Tartaragno","Pipi Corni","Holy Arepa"
     },
     Rare = {
-        "Trippi Troppi", "Tung Tung Tung Sahur", "Gangster Footera", "Bandito Bobritto",
-        "Boneca Ambalabu", "Cacto Hipopotamo", "Ta Ta Ta Ta Sahur", "Tric Trac Baraboom",
-        "Frogo Elfo", "Pipi Avocado", "Pengolino Nuvoletto", "Cupcake Koala", "Pinealotto Fruttarino"
+        "Trippi Troppi","Tung Tung Tung Sahur","Gangster Footera","Bandito Bobritto",
+        "Boneca Ambalabu","Cacto Hipopotamo","Ta Ta Ta Ta Sahur","Tric Trac Baraboom",
+        "Frogo Elfo","Pipi Avocado","Pengolino Nuvoletto","Cupcake Koala","Pinealotto Fruttarino"
     },
     Epic = {
-        "Cappuccino Assassino", "Bandito Axolito", "Brr Brr Patapim", "Avocadini Antilopini",
-        "Trulimero Trulicina", "Bambini Crostini", "Malame Amarele", "Bananita Dolphinita",
-        "Perochello Lemonchello", "Brri Brri Bicus Dicus Bombicus", "Avocadini Guffo",
-        "Ti Ti Ti Sahur", "Mangolini Parrocini", "Frogato Pirato", "Salamino Penguino",
-        "Gato Celesto", "Doi Doi Do", "Penguin Tree", "Wombo Rollo", "Penguino Cocosino", "Mummio Rappitto"
+        "Cappuccino Assassino","Bandito Axolito","Brr Brr Patapim","Avocadini Antilopini",
+        "Trulimero Trulicina","Bambini Crostini","Malame Amarele","Bananita Dolphinita",
+        "Perochello Lemonchello","Brri Brri Bicus Dicus Bombicus","Avocadini Guffo",
+        "Ti Ti Ti Sahur","Mangolini Parrocini","Frogato Pirato","Salamino Penguino",
+        "Gato Celesto","Doi Doi Do","Penguin Tree","Wombo Rollo","Penguino Cocosino","Mummio Rappitto"
     },
     Legendary = {
-        "Burbaloni Loliloli", "Chimpanzini Bananini", "Tirilikalika Tirilikalako",
-        "Ballerina Cappuccina", "Chef Crabracadabra", "Lionel Cactuseli", "Glorbo Fruttodrillo",
-        "Quivioli Ameleonni", "Blueberrinni Octopusini", "Clickerino Crabo", "Caramello Filtrello",
-        "Pipi Potato", "Strawberrelli Flamingelli", "Cocosini Mama", "Pandaccini Bananini",
-        "Quackula", "Pi Pi Watermelon", "Signore Carapace", "Sigma Boy", "Buho del Cielo",
-        "Sigma Girl", "Chocco Bunny", "Puffaball", "Sealo Regalo", "Buho de Fuego", "Seraphino Gruyero"
+        "Burbaloni Loliloli","Chimpanzini Bananini","Tirilikalika Tirilikalako",
+        "Ballerina Cappuccina","Chef Crabracadabra","Lionel Cactuseli","Glorbo Fruttodrillo",
+        "Quivioli Ameleonni","Blueberrinni Octopusini","Clickerino Crabo","Caramello Filtrello",
+        "Pipi Potato","Strawberrelli Flamingelli","Cocosini Mama","Pandaccini Bananini",
+        "Quackula","Pi Pi Watermelon","Signore Carapace","Sigma Boy","Buho del Cielo",
+        "Sigma Girl","Chocco Bunny","Puffaball","Sealo Regalo","Buho de Fuego","Seraphino Gruyero"
     },
     Mythic = {
-        "Frigo Camelo", "Orangutini Ananassini", "Rhino Toasterino", "Bombardiro Crocodilo",
-        "Brutto Gialutto", "Spioniro Golubiro", "Bombombini Gusini", "Zibra Zubra Zibralini",
-        "Tigrilini Watermelini", "Avocadorilla", "Cavallo Virtuoso", "Te Te Te Sahur",
-        "Gorillo Watermelondrillo", "Stoppo Luminino", "Tracoducotulu Delapeladustuz",
-        "Tob Tobi Tobi", "Lerulerulerule", "Ganganzelli Trulala", "Rhino Helicopterino",
-        "Jingle Jingle Sahur", "Los Noobinis", "Cachorrito Melonito", "Spongini Quackini",
-        "Carloooo", "Elefanto Frigo", "Berenjello Angello", "Carrotini Brainini"
+        "Frigo Camelo","Orangutini Ananassini","Rhino Toasterino","Bombardiro Crocodilo",
+        "Brutto Gialutto","Spioniro Golubiro","Bombombini Gusini","Zibra Zubra Zibralini",
+        "Tigrilini Watermelini","Avocadorilla","Cavallo Virtuoso","Te Te Te Sahur",
+        "Gorillo Watermelondrillo","Stoppo Luminino","Tracoducotulu Delapeladustuz",
+        "Tob Tobi Tobi","Lerulerulerule","Ganganzelli Trulala","Rhino Helicopterino",
+        "Jingle Jingle Sahur","Los Noobinis","Cachorrito Melonito","Spongini Quackini",
+        "Carloooo","Elefanto Frigo","Berenjello Angello","Carrotini Brainini"
     },
     BrainrotGod = {
-        "Cocofanto Elefanto", "Girafa Celestre", "Gattatino Nyanino", "Chihuanini Taconini",
-        "Matteo", "Tralalero Tralala", "Espresso Signora", "Odin Din Din Dun",
-        "Statutino Libertino", "Trenostruzzo Turbo 3000", "Ballerino Lololo", "Los Orcalitos",
-        "Dug dug dug", "Urubini Flamenguini", "Capi Taco", "Bombardini Tortinii",
-        "Corn Corn Corn Sahur", "Ginger Globo", "Frio Ninja", "Ginger Cisterna",
-        "Piccione Macchina", "Belula Beluga", "Anpali Babel", "Mastodontico Telepiedone",
-        "Piccionetta Macchina", "Los Tipi Tacos", "Tartaruga Cisterna"
+        "Cocofanto Elefanto","Girafa Celestre","Gattatino Nyanino","Chihuanini Taconini",
+        "Matteo","Tralalero Tralala","Espresso Signora","Odin Din Din Dun",
+        "Statutino Libertino","Trenostruzzo Turbo 3000","Ballerino Lololo","Los Orcalitos",
+        "Dug dug dug","Urubini Flamenguini","Capi Taco","Bombardini Tortinii",
+        "Corn Corn Corn Sahur","Ginger Globo","Frio Ninja","Ginger Cisterna",
+        "Piccione Macchina","Belula Beluga","Anpali Babel","Mastodontico Telepiedone",
+        "Piccionetta Macchina","Los Tipi Tacos","Tartaruga Cisterna"
     },
     Secret = {
-        "Las Sis", "La Vacca Staturno Saturnita", "Sammyni Spyderini", "Extinct Tralalero",
-        "Extinct Matteo", "Los Tralaleritos", "La Karkerkar Combinasion", "Karker Sahur",
-        "Las Tralaleritas", "Job Job Job Sahur", "Graipuss Medussi", "La Grande Combinasion",
-        "Tacorita Bicicleta", "Nuclearo Dinossauro", "Money Money Puggy", "Chillin Chili",
-        "Los Tacoritas", "Tang Tang Kelentang", "Dragon Cannelloni", "Blackhole Goat",
-        "Spaghetti Tualetti", "Garama and Madundung", "Ketchuru and Musturu",
-        "La Supreme Combinasion", "Los Bros", "Ketupat Kepat", "Tralaledon", "Los Hotspotsitos",
-        "Los Combinasionas", "Noo My Hotspot", "Dragon Gingerini", "Chicleteira Bicicleteira",
-        "Esok Sekolah", "Pot Hotspot", "Sahur Combinasion", "Graipussi Medussi",
-        "Las Vaquitas Saturnitas", "Fragola la la la", "Bisonte Giuppitere"
+        "Las Sis","La Vacca Staturno Saturnita","Sammyni Spyderini","Extinct Tralalero",
+        "Extinct Matteo","Los Tralaleritos","La Karkerkar Combinasion","Karker Sahur",
+        "Las Tralaleritas","Job Job Job Sahur","Graipuss Medussi","La Grande Combinasion",
+        "Tacorita Bicicleta","Nuclearo Dinossauro","Money Money Puggy","Chillin Chili",
+        "Los Tacoritas","Tang Tang Kelentang","Dragon Cannelloni","Blackhole Goat",
+        "Spaghetti Tualetti","Garama and Madundung","Ketchuru and Musturu",
+        "La Supreme Combinasion","Los Bros","Ketupat Kepat","Tralaledon","Los Hotspotsitos",
+        "Los Combinasionas","Noo My Hotspot","Dragon Gingerini","Chicleteira Bicicleteira",
+        "Esok Sekolah","Pot Hotspot","Sahur Combinasion","Graipussi Medussi",
+        "Las Vaquitas Saturnitas","Fragola la la la","Bisonte Giuppitere"
     },
     OG = {
-        "Strawberry Elephant", "Meowl", "Skibidi Toilet", "Headless Horseman",
-        "Love Love Bear", "Griffin", "John Pork", "Nyan Cat", "Smurf Cat"
+        "Strawberry Elephant","Meowl","Skibidi Toilet","Headless Horseman",
+        "Love Love Bear","Griffin","John Pork","Nyan Cat","Smurf Cat"
     },
     Special = {
-        "Cerberus", "Fragrama and Chocrama", "Hydra Bunny", "Los Bros", "Sammyni Fattini",
-        "Fortunu and Cashuru", "Signore Carapace", "Tictac Sahur", "La Jolly Grande",
-        "Garama and Madundung", "Reinito Sleighito", "Dragon Gingerini", "Money Money Reindeer",
-        "Tang Tang Keletang", "Pancake and Syrup", "Ventoliero Pavonero", "Los Tacoritas",
-        "Fishino Clownino", "W or L", "Eviledon", "La Lucky Grande", "La Extinct Grande",
-        "Dragon Cannelloni", "Las Sis", "La Casa Boo", "La Secret Combinasion", "Headless Horseman",
-        "Ketchuru and Musturu", "Tralaledon", "Cash or Card", "Burguro And Fryuro", "Elefanto Frigo",
-        "Spooky and Pumpky", "Los Amigos", "Tacorita Bicicleta", "Hydra Dragon Cannelloni",
-        "Los Spaghettis", "Cooki and Milki", "Nacho Spyder", "Los Sekolahs", "Dug dug dug",
-        "Los Primos", "La Easter Grande", "Rosey and Teddy", "Love Love Bear", 
-        "Hopilikalika Hopilikalako", "La Romantic Grande", "La Food Combinasion", "Arcadragon",
-        "Chipso and Queso", "Cloverat Clapat", "Celestial Pegasus", "Capitano Moby", 
-        "La Ginger Sekolah", "Chillin Chili", "Ginger Gerat", "Tirilikalika Tirilikalako",
-        "Boppin Bunny", "Ketupat Bros", "Celularcini Viciosini", "La Taco Combinasion",
-        "Lavadorito Spinito", "Skibidi Toilet", "Swaggy Bros", "Popcuru and Fizzuru", 
-        "Tuff Toucan", "La Supreme Combinasion", "Foxini Lanternini", "Strawberry Elephant",
-        "Ketupat Kepat", "Antonio", "Rosetti Tualetti", "Lovin Rose", "Orcaledon", 
-        "Duggy Bros", "Bunny and Eggy", "Mi Gatito", "Money Money Bros", "Noo my Candy", "Los Chillis"
+        "Cerberus","Fragrama and Chocrama","Hydra Bunny","Los Bros","Sammyni Fattini",
+        "Fortunu and Cashuru","Signore Carapace","Tictac Sahur","La Jolly Grande",
+        "Garama and Madundung","Reinito Sleighito","Dragon Gingerini","Money Money Reindeer",
+        "Tang Tang Keletang","Pancake and Syrup","Ventoliero Pavonero","Los Tacoritas",
+        "Fishino Clownino","W or L","Eviledon","La Lucky Grande","La Extinct Grande",
+        "Dragon Cannelloni","Las Sis","La Casa Boo","La Secret Combinasion","Headless Horseman",
+        "Ketchuru and Musturu","Tralaledon","Cash or Card","Burguro And Fryuro","Elefanto Frigo",
+        "Spooky and Pumpky","Los Amigos","Tacorita Bicicleta","Hydra Dragon Cannelloni",
+        "Los Spaghettis","Cooki and Milki","Nacho Spyder","Los Sekolahs","Dug dug dug",
+        "Los Primos","La Easter Grande","Rosey and Teddy","Love Love Bear",
+        "Hopilikalika Hopilikalako","La Romantic Grande","La Food Combinasion","Arcadragon",
+        "Chipso and Queso","Cloverat Clapat","Celestial Pegasus","Capitano Moby",
+        "La Ginger Sekolah","Chillin Chili","Ginger Gerat","Tirilikalika Tirilikalako",
+        "Boppin Bunny","Ketupat Bros","Celularcini Viciosini","La Taco Combinasion",
+        "Lavadorito Spinito","Skibidi Toilet","Swaggy Bros","Popcuru and Fizzuru",
+        "Tuff Toucan","La Supreme Combinasion","Foxini Lanternini","Strawberry Elephant",
+        "Ketupat Kepat","Antonio","Rosetti Tualetti","Lovin Rose","Orcaledon",
+        "Duggy Bros","Bunny and Eggy","Mi Gatito","Money Money Bros","Noo my Candy","Los Chillis"
     },
     GoldMutations = {
-        "Gold Noobini Pizzanini", "Gold Trippi Troppi", "Gold Cappuccino Assassino",
-        "Gold Burbaloni Loliloli", "Gold Frigo Camelo", "Gold Cocofanto Elefanto",
-        "Gold Matteo", "Gold Tralalero Tralala", "Gold Dragon Cannelloni", "Gold Girafa Celestre",
-        "Gold Gattatino Nyanino", "Gold Chihuanini Taconini", "Gold Odin Din Din Dun",
-        "Gold Espresso Signora", "Gold Ginger Globo", "Gold Frio Ninja"
+        "Gold Noobini Pizzanini","Gold Trippi Troppi","Gold Cappuccino Assassino",
+        "Gold Burbaloni Loliloli","Gold Frigo Camelo","Gold Cocofanto Elefanto",
+        "Gold Matteo","Gold Tralalero Tralala","Gold Dragon Cannelloni","Gold Girafa Celestre",
+        "Gold Gattatino Nyanino","Gold Chihuanini Taconini","Gold Odin Din Din Dun",
+        "Gold Espresso Signora","Gold Ginger Globo","Gold Frio Ninja"
     },
     RainbowMutations = {
-        "Rainbow Noobini Pizzanini", "Rainbow Trippi Troppi", "Rainbow Cappuccino Assassino",
-        "Rainbow Burbaloni Loliloli", "Rainbow Frigo Camelo", "Rainbow Cocofanto Elefanto",
-        "Rainbow Matteo", "Rainbow Tralalero Tralala", "Rainbow Dragon Cannelloni",
-        "Rainbow Bambini Crostini", "Rainbow Perochello Lemonchello"
+        "Rainbow Noobini Pizzanini","Rainbow Trippi Troppi","Rainbow Cappuccino Assassino",
+        "Rainbow Burbaloni Loliloli","Rainbow Frigo Camelo","Rainbow Cocofanto Elefanto",
+        "Rainbow Matteo","Rainbow Tralalero Tralala","Rainbow Dragon Cannelloni",
+        "Rainbow Bambini Crostini","Rainbow Perochello Lemonchello"
     },
     DiamondMutations = {
-        "Diamond Noobini Pizzanini", "Diamond Trippi Troppi", "Diamond Cappuccino Assassino",
-        "Diamond Burbaloni Loliloli", "Diamond Bombardiro Crocodilo", "Diamond Matteo",
+        "Diamond Noobini Pizzanini","Diamond Trippi Troppi","Diamond Cappuccino Assassino",
+        "Diamond Burbaloni Loliloli","Diamond Bombardiro Crocodilo","Diamond Matteo",
         "Diamond Gattito Tacoto"
     },
     ShinyMutations = {
-        "Shiny Noobini Pizzanini", "Shiny Matteo", "Shiny Dragon Cannelloni",
-        "Shiny Cocofanto Elefanto", "Shiny Tralalero Tralala"
+        "Shiny Noobini Pizzanini","Shiny Matteo","Shiny Dragon Cannelloni",
+        "Shiny Cocofanto Elefanto","Shiny Tralalero Tralala"
     }
 }
 
--- Flatten all brainrots
-local AllBrainrots = {}
 local RarityColors = {
-    Common = Color3.fromRGB(128,128,128),
-    Rare = Color3.fromRGB(0,112,221),
-    Epic = Color3.fromRGB(163,53,238),
-    Legendary = Color3.fromRGB(255,128,0),
-    Mythic = Color3.fromRGB(255,68,68),
-    BrainrotGod = Color3.fromRGB(0,204,255),
-    Secret = Color3.fromRGB(255,68,170),
-    OG = Color3.fromRGB(255,200,0),
-    Special = Color3.fromRGB(255,100,50),
-    GoldMutations = Color3.fromRGB(255,215,0),
-    RainbowMutations = Color3.fromRGB(255,100,255),
-    DiamondMutations = Color3.fromRGB(100,200,255),
-    ShinyMutations = Color3.fromRGB(200,100,255),
+    Common=Color3.fromRGB(128,128,128), Rare=Color3.fromRGB(0,112,221),
+    Epic=Color3.fromRGB(163,53,238), Legendary=Color3.fromRGB(255,128,0),
+    Mythic=Color3.fromRGB(255,68,68), BrainrotGod=Color3.fromRGB(0,204,255),
+    Secret=Color3.fromRGB(255,68,170), OG=Color3.fromRGB(255,200,0),
+    Special=Color3.fromRGB(255,100,50), GoldMutations=Color3.fromRGB(255,215,0),
+    RainbowMutations=Color3.fromRGB(255,100,255), DiamondMutations=Color3.fromRGB(100,200,255),
+    ShinyMutations=Color3.fromRGB(200,100,255),
 }
 
+local AllBrainrots = {}
 for rarity, list in pairs(BrainrotDatabase) do
     for _, name in ipairs(list) do
-        table.insert(AllBrainrots, {name = name, rarity = rarity})
+        table.insert(AllBrainrots, {name=name, rarity=rarity})
     end
 end
 
--- ============================================
--- FILTER CONFIG
--- ============================================
 local SelectedFilters = {}
-local ShowAll = true
+local ShowAll    = true
 local SearchTerm = ""
 
--- ============================================
--- HTTP WRAPPER
--- ============================================
+-- HTTP wrapper
 local function httpGet(url)
     local reqFn = (syn and syn.request) or request or (http and http.request)
     if reqFn then
-        local ok, res = pcall(reqFn, {Url = url, Method = "GET"})
-        if ok and res and res.Body and res.Body ~= "" then
-            return res.Body
-        end
+        local ok, res = pcall(reqFn, {Url=url, Method="GET"})
+        if ok and res and res.Body and res.Body ~= "" then return res.Body end
     end
-    local ok2, body = pcall(function()
-        return HttpService:GetAsync(url, true)
-    end)
+    local ok2, body = pcall(function() return HttpService:GetAsync(url, true) end)
     if ok2 and body and body ~= "" then return body end
     return nil
 end
 
 -- ============================================
--- CREATE GUI (SMALLER - 550x550)
+-- GUI
 -- ============================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CocoXBrainrot"
@@ -342,7 +202,6 @@ MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 Instance.new("UICorner",MainFrame).CornerRadius = UDim.new(0,12)
 
--- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1,0,0,40)
 TitleBar.BackgroundColor3 = Colors.PrimaryDark
@@ -382,7 +241,32 @@ CloseBtn.BorderSizePixel = 0
 CloseBtn.Parent = TitleBar
 Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0,7)
 
--- Tab Bar
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(0,50,0,26)
+SaveBtn.Position = UDim2.new(1,-100,0,7)
+SaveBtn.BackgroundColor3 = Colors.PrimaryDark
+SaveBtn.BackgroundTransparency = 0.3
+SaveBtn.Text = "💾 SAVE"
+SaveBtn.TextColor3 = Colors.Text
+SaveBtn.TextSize = 10
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.BorderSizePixel = 0
+SaveBtn.Parent = TitleBar
+Instance.new("UICorner",SaveBtn).CornerRadius = UDim.new(0,5)
+
+local LoadBtn = Instance.new("TextButton")
+LoadBtn.Size = UDim2.new(0,50,0,26)
+LoadBtn.Position = UDim2.new(1,-155,0,7)
+LoadBtn.BackgroundColor3 = Colors.PrimaryDark
+LoadBtn.BackgroundTransparency = 0.3
+LoadBtn.Text = "📂 LOAD"
+LoadBtn.TextColor3 = Colors.Text
+LoadBtn.TextSize = 10
+LoadBtn.Font = Enum.Font.GothamBold
+LoadBtn.BorderSizePixel = 0
+LoadBtn.Parent = TitleBar
+Instance.new("UICorner",LoadBtn).CornerRadius = UDim.new(0,5)
+
 local TabBar = Instance.new("Frame")
 TabBar.Size = UDim2.new(1,0,0,35)
 TabBar.Position = UDim2.new(0,0,0,40)
@@ -411,36 +295,7 @@ FilterTab.Font = Enum.Font.GothamBold
 FilterTab.BorderSizePixel = 0
 FilterTab.Parent = TabBar
 
--- Save/Load Buttons on Title Bar
-local SaveBtn = Instance.new("TextButton")
-SaveBtn.Size = UDim2.new(0,50,0,26)
-SaveBtn.Position = UDim2.new(1,-100,0,7)
-SaveBtn.BackgroundColor3 = Colors.PrimaryDark
-SaveBtn.BackgroundTransparency = 0.3
-SaveBtn.Text = "💾 SAVE"
-SaveBtn.TextColor3 = Colors.Text
-SaveBtn.TextSize = 10
-SaveBtn.Font = Enum.Font.GothamBold
-SaveBtn.BorderSizePixel = 0
-SaveBtn.Parent = TitleBar
-Instance.new("UICorner",SaveBtn).CornerRadius = UDim.new(0,5)
-
-local LoadBtn = Instance.new("TextButton")
-LoadBtn.Size = UDim2.new(0,50,0,26)
-LoadBtn.Position = UDim2.new(1,-155,0,7)
-LoadBtn.BackgroundColor3 = Colors.PrimaryDark
-LoadBtn.BackgroundTransparency = 0.3
-LoadBtn.Text = "📂 LOAD"
-LoadBtn.TextColor3 = Colors.Text
-LoadBtn.TextSize = 10
-LoadBtn.Font = Enum.Font.GothamBold
-LoadBtn.BorderSizePixel = 0
-LoadBtn.Parent = TitleBar
-Instance.new("UICorner",LoadBtn).CornerRadius = UDim.new(0,5)
-
--- ============================================
 -- SCANNER PAGE
--- ============================================
 local ScannerPage = Instance.new("Frame")
 ScannerPage.Size = UDim2.new(1,0,1,-75)
 ScannerPage.Position = UDim2.new(0,0,0,75)
@@ -498,18 +353,15 @@ HeaderFrame.BackgroundTransparency = 0.4
 HeaderFrame.Parent = ScannerPage
 Instance.new("UICorner",HeaderFrame).CornerRadius = UDim.new(0,6)
 
-local function hLabel(parent, size, pos, text)
-    local l = Instance.new("TextLabel")
-    l.Size = size; l.Position = pos
-    l.BackgroundTransparency = 1
-    l.Text = text; l.TextColor3 = Colors.Text
-    l.TextSize = 10; l.Font = Enum.Font.GothamBold
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = parent
+local function hLabel(parent,size,pos,text)
+    local l=Instance.new("TextLabel"); l.Size=size; l.Position=pos
+    l.BackgroundTransparency=1; l.Text=text; l.TextColor3=Colors.Text
+    l.TextSize=10; l.Font=Enum.Font.GothamBold
+    l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=parent
 end
-hLabel(HeaderFrame, UDim2.new(0.45,0,1,0), UDim2.new(0,8,0,0),  "🧠 Brainrot")
-hLabel(HeaderFrame, UDim2.new(0.2,0,1,0),  UDim2.new(0.45,0,0,0),"💰 Value")
-hLabel(HeaderFrame, UDim2.new(0.25,0,1,0), UDim2.new(0.65,0,0,0),"👤 Owner")
+hLabel(HeaderFrame,UDim2.new(0.42,0,1,0),UDim2.new(0,8,0,0),"🧠 Brainrot")
+hLabel(HeaderFrame,UDim2.new(0.18,0,1,0),UDim2.new(0.42,0,0,0),"💰 Value")
+hLabel(HeaderFrame,UDim2.new(0.22,0,1,0),UDim2.new(0.60,0,0,0),"👤 Owner")
 
 local ListFrame = Instance.new("Frame")
 ListFrame.Size = UDim2.new(1,-16,1,-105)
@@ -532,9 +384,7 @@ ListLayout.Padding = UDim.new(0,3)
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ListLayout.Parent = ListScroll
 
--- ============================================
--- FILTER PAGE (with SEARCH)
--- ============================================
+-- FILTER PAGE
 local FilterPage = Instance.new("ScrollingFrame")
 FilterPage.Size = UDim2.new(1,0,1,-75)
 FilterPage.Position = UDim2.new(0,0,0,75)
@@ -545,7 +395,6 @@ FilterPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
 FilterPage.Visible = false
 FilterPage.Parent = MainFrame
 
--- Search Bar
 local SearchFrame = Instance.new("Frame")
 SearchFrame.Size = UDim2.new(1,-16,0,35)
 SearchFrame.Position = UDim2.new(0,8,0,8)
@@ -576,7 +425,6 @@ SearchBox.Font = Enum.Font.Gotham
 SearchBox.ClearTextOnFocus = false
 SearchBox.Parent = SearchFrame
 
--- Quick Action Buttons
 local QuickFrame = Instance.new("Frame")
 QuickFrame.Size = UDim2.new(1,-16,0,35)
 QuickFrame.Position = UDim2.new(0,8,0,50)
@@ -610,55 +458,49 @@ ClearAllBtn.BorderSizePixel = 0
 ClearAllBtn.Parent = QuickFrame
 Instance.new("UICorner",ClearAllBtn).CornerRadius = UDim.new(0,6)
 
--- Filter Categories Container
 local FilterContent = Instance.new("Frame")
 FilterContent.Size = UDim2.new(1,0,0,0)
 FilterContent.BackgroundTransparency = 1
 FilterContent.Parent = FilterPage
-
 local FilterContentLayout = Instance.new("UIListLayout")
 FilterContentLayout.Padding = UDim.new(0,6)
 FilterContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
 FilterContentLayout.Parent = FilterContent
 
--- Store category frames for search
-local CategoryFrames = {}
-local CategoryHeaders = {}
+local CategoryFrames     = {}
+local CategoryHeaders    = {}
 local CheckboxReferences = {}
 
--- Create category sections
 for rarity, brainrots in pairs(BrainrotDatabase) do
     if brainrots and #brainrots > 0 then
         local sectionFrame = Instance.new("Frame")
-        sectionFrame.Size = UDim2.new(1,-16,0,35 + (#brainrots * 28))
+        sectionFrame.Size = UDim2.new(1,-16,0,35+(#brainrots*28))
         sectionFrame.BackgroundColor3 = Colors.PanelBg
         sectionFrame.BackgroundTransparency = 0.2
         sectionFrame.Parent = FilterContent
         Instance.new("UICorner",sectionFrame).CornerRadius = UDim.new(0,8)
-        
-        -- Category header
+
         local header = Instance.new("TextLabel")
         header.Size = UDim2.new(1,0,0,32)
         header.BackgroundColor3 = RarityColors[rarity] or Colors.PrimaryDark
         header.BackgroundTransparency = 0.2
-        header.Text = rarity:upper() .. " (" .. #brainrots .. ")"
+        header.Text = rarity:upper().." ("..#brainrots..")"
         header.TextColor3 = Colors.Text
         header.TextSize = 11
         header.Font = Enum.Font.GothamBold
         header.TextXAlignment = Enum.TextXAlignment.Center
         header.Parent = sectionFrame
         Instance.new("UICorner",header).CornerRadius = UDim.new(0,8)
-        
-        -- Content frame
+
         local content = Instance.new("Frame")
-        content.Size = UDim2.new(1,0,0,#brainrots * 28)
+        content.Size = UDim2.new(1,0,0,#brainrots*28)
         content.Position = UDim2.new(0,0,0,32)
         content.BackgroundTransparency = 1
         content.Parent = sectionFrame
-        
-        CategoryFrames[rarity] = {frame = content, items = {}}
+
+        CategoryFrames[rarity] = {frame=content, items={}}
         CategoryHeaders[rarity] = header
-        
+
         local yPos = 0
         for _, brainrot in ipairs(brainrots) do
             local itemFrame = Instance.new("Frame")
@@ -668,7 +510,7 @@ for rarity, brainrots in pairs(BrainrotDatabase) do
             itemFrame.BackgroundTransparency = 0.5
             itemFrame.Parent = content
             Instance.new("UICorner",itemFrame).CornerRadius = UDim.new(0,4)
-            
+
             local checkbox = Instance.new("TextButton")
             checkbox.Size = UDim2.new(0,26,0,22)
             checkbox.Position = UDim2.new(0,5,0,2)
@@ -681,31 +523,21 @@ for rarity, brainrots in pairs(BrainrotDatabase) do
             checkbox.BorderSizePixel = 0
             checkbox.Parent = itemFrame
             Instance.new("UICorner",checkbox).CornerRadius = UDim.new(0,4)
-            
+
             local nameLabel = Instance.new("TextLabel")
             nameLabel.Size = UDim2.new(1,-42,1,0)
             nameLabel.Position = UDim2.new(0,38,0,0)
             nameLabel.BackgroundTransparency = 1
             nameLabel.Text = brainrot
-            nameLabel.TextColor3 = Colors.Text
+            nameLabel.TextColor3 = Colors.TextDim
             nameLabel.TextSize = 10
             nameLabel.Font = Enum.Font.Gotham
             nameLabel.TextXAlignment = Enum.TextXAlignment.Left
             nameLabel.Parent = itemFrame
-            
-            -- Store reference for updating UI
-            CheckboxReferences[brainrot] = {checkbox = checkbox, label = nameLabel}
-            
-            table.insert(CategoryFrames[rarity].items, {checkbox = checkbox, label = nameLabel, name = brainrot})
-            
-            -- Set initial state from loaded filters
-            if SelectedFilters[brainrot] then
-                checkbox.Text = "☑"
-                checkbox.BackgroundColor3 = Colors.Primary
-                checkbox.BackgroundTransparency = 0
-                nameLabel.TextColor3 = Colors.PrimaryLight
-            end
-            
+
+            CheckboxReferences[brainrot] = {checkbox=checkbox, label=nameLabel}
+            table.insert(CategoryFrames[rarity].items, {checkbox=checkbox, label=nameLabel, name=brainrot})
+
             checkbox.MouseButton1Click:Connect(function()
                 if SelectedFilters[brainrot] then
                     SelectedFilters[brainrot] = nil
@@ -720,7 +552,6 @@ for rarity, brainrots in pairs(BrainrotDatabase) do
                     checkbox.BackgroundTransparency = 0
                     nameLabel.TextColor3 = Colors.PrimaryLight
                 end
-                
                 local count = 0
                 for _ in pairs(SelectedFilters) do count = count + 1 end
                 if count == 0 then
@@ -729,17 +560,16 @@ for rarity, brainrots in pairs(BrainrotDatabase) do
                     FilterIndicator.TextColor3 = Colors.TextDim
                 else
                     ShowAll = false
-                    FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
+                    FilterIndicator.Text = "🎯 Filter: "..count.." selected"
                     FilterIndicator.TextColor3 = Colors.PrimaryLight
                 end
             end)
-            
+
             yPos = yPos + 28
         end
     end
 end
 
--- Search function
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     SearchTerm = SearchBox.Text:lower()
     for rarity, data in pairs(CategoryFrames) do
@@ -752,21 +582,13 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
                 item.checkbox.Parent.Visible = false
             end
         end
-        if SearchTerm == "" then
-            data.frame.Size = UDim2.new(1,0,0,#data.items * 28)
-            if CategoryHeaders[rarity] then
-                CategoryHeaders[rarity].Text = rarity:upper() .. " (" .. #data.items .. ")"
-            end
-        else
-            data.frame.Size = UDim2.new(1,0,0,visibleCount * 28)
-            if CategoryHeaders[rarity] then
-                CategoryHeaders[rarity].Text = rarity:upper() .. " (" .. visibleCount .. " shown)"
-            end
+        data.frame.Size = UDim2.new(1,0,0,visibleCount*28)
+        if CategoryHeaders[rarity] then
+            CategoryHeaders[rarity].Text = rarity:upper().." ("..(SearchTerm=="" and #data.items or visibleCount).." shown)"
         end
     end
 end)
 
--- Select All button
 SelectAllBtn.MouseButton1Click:Connect(function()
     for rarity, data in pairs(CategoryFrames) do
         for _, item in ipairs(data.items) do
@@ -780,10 +602,8 @@ SelectAllBtn.MouseButton1Click:Connect(function()
     ShowAll = false
     FilterIndicator.Text = "🎯 Filter: ALL selected"
     FilterIndicator.TextColor3 = Colors.PrimaryLight
-    StatusLabel.Text = "Filter updated"
 end)
 
--- Clear All button
 ClearAllBtn.MouseButton1Click:Connect(function()
     SelectedFilters = {}
     for rarity, data in pairs(CategoryFrames) do
@@ -797,131 +617,108 @@ ClearAllBtn.MouseButton1Click:Connect(function()
     ShowAll = true
     FilterIndicator.Text = "🎯 Filter: ALL"
     FilterIndicator.TextColor3 = Colors.TextDim
-    StatusLabel.Text = "Filter cleared"
 end)
 
--- Position FilterContent after all categories
 FilterContent.Position = UDim2.new(0,8,0,92)
 FilterContent.Size = UDim2.new(1,-16,0,0)
 
--- Update FilterContent height based on children
 local function updateFilterHeight()
     local height = 0
     for _, child in ipairs(FilterContent:GetChildren()) do
-        if child:IsA("Frame") then
-            height = height + child.Size.Y.Offset + 6
-        end
+        if child:IsA("Frame") then height = height + child.Size.Y.Offset + 6 end
     end
     FilterContent.Size = UDim2.new(1,-16,0,height)
-    FilterPage.CanvasSize = UDim2.new(0,0,0,height + 100)
+    FilterPage.CanvasSize = UDim2.new(0,0,0,height+100)
 end
-task.spawn(function()
-    task.wait(0.5)
-    updateFilterHeight()
-end)
+task.spawn(function() task.wait(0.5); updateFilterHeight() end)
 FilterContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateFilterHeight)
 
--- ============================================
--- TAB SWITCHING
--- ============================================
+-- TABS
 local function SwitchToPage(page)
     if page == 1 then
-        ScannerPage.Visible = true
-        FilterPage.Visible = false
-        ScannerTab.BackgroundColor3 = Colors.Primary
-        ScannerTab.TextColor3 = Colors.Text
-        FilterTab.BackgroundColor3 = Colors.PanelBg
-        FilterTab.TextColor3 = Colors.TextDim
+        ScannerPage.Visible=true; FilterPage.Visible=false
+        ScannerTab.BackgroundColor3=Colors.Primary; ScannerTab.TextColor3=Colors.Text
+        FilterTab.BackgroundColor3=Colors.PanelBg; FilterTab.TextColor3=Colors.TextDim
     else
-        ScannerPage.Visible = false
-        FilterPage.Visible = true
-        ScannerTab.BackgroundColor3 = Colors.PanelBg
-        ScannerTab.TextColor3 = Colors.TextDim
-        FilterTab.BackgroundColor3 = Colors.Primary
-        FilterTab.TextColor3 = Colors.Text
+        ScannerPage.Visible=false; FilterPage.Visible=true
+        ScannerTab.BackgroundColor3=Colors.PanelBg; ScannerTab.TextColor3=Colors.TextDim
+        FilterTab.BackgroundColor3=Colors.Primary; FilterTab.TextColor3=Colors.Text
     end
 end
-
 ScannerTab.MouseButton1Click:Connect(function() SwitchToPage(1) end)
 FilterTab.MouseButton1Click:Connect(function() SwitchToPage(2) end)
 
--- Save button
-SaveBtn.MouseButton1Click:Connect(function()
-    SaveFilters()
-end)
+-- SAVE / LOAD
+local function SaveFilters()
+    local list = {}
+    for name in pairs(SelectedFilters) do table.insert(list, name) end
+    local ok = pcall(function()
+        UniversalWriteFile(SAVE_FILE, HttpService:JSONEncode({selected=list, showAll=ShowAll, version=2}))
+    end)
+    StatusLabel.Text = ok and ("💾 Saved "..#list.." filters!") or "❌ Save failed!"
+    task.wait(1.5); StatusLabel.Text = "🟢 Live"
+end
 
--- Load button
+local function LoadFilters()
+    local ok, data = pcall(function()
+        if not UniversalFileExists(SAVE_FILE) then return nil end
+        local c = UniversalReadFile(SAVE_FILE)
+        return (c and c ~= "") and HttpService:JSONDecode(c) or nil
+    end)
+    if ok and data then
+        SelectedFilters = {}
+        if data.selected then for _, n in ipairs(data.selected) do SelectedFilters[n]=true end end
+        ShowAll = (data.showAll ~= nil) and data.showAll or (#(data.selected or {})==0)
+    end
+end
+
+SaveBtn.MouseButton1Click:Connect(SaveFilters)
 LoadBtn.MouseButton1Click:Connect(function()
     LoadFilters()
-    -- Update UI checkboxes
-    for name, selected in pairs(SelectedFilters) do
-        local ref = CheckboxReferences[name]
-        if ref then
-            ref.checkbox.Text = "☑"
-            ref.checkbox.BackgroundColor3 = Colors.Primary
-            ref.checkbox.BackgroundTransparency = 0
-            ref.label.TextColor3 = Colors.PrimaryLight
-        end
-    end
-    -- Clear unchecked
     for name, ref in pairs(CheckboxReferences) do
-        if not SelectedFilters[name] then
-            ref.checkbox.Text = "□"
-            ref.checkbox.BackgroundColor3 = Colors.PrimaryDark
-            ref.checkbox.BackgroundTransparency = 0.5
-            ref.label.TextColor3 = Colors.TextDim
+        if SelectedFilters[name] then
+            ref.checkbox.Text="☑"; ref.checkbox.BackgroundColor3=Colors.Primary
+            ref.checkbox.BackgroundTransparency=0; ref.label.TextColor3=Colors.PrimaryLight
+        else
+            ref.checkbox.Text="□"; ref.checkbox.BackgroundColor3=Colors.PrimaryDark
+            ref.checkbox.BackgroundTransparency=0.5; ref.label.TextColor3=Colors.TextDim
         end
     end
-    local count = 0
-    for _ in pairs(SelectedFilters) do count = count + 1 end
-    if count == 0 then
-        ShowAll = true
-        FilterIndicator.Text = "🎯 Filter: ALL"
-        FilterIndicator.TextColor3 = Colors.TextDim
-    else
-        ShowAll = false
-        FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
-        FilterIndicator.TextColor3 = Colors.PrimaryLight
-    end
-    StatusLabel.Text = "📂 Filters loaded!"
-    task.wait(1)
-    StatusLabel.Text = "🟢 Live"
+    local count=0; for _ in pairs(SelectedFilters) do count=count+1 end
+    if count==0 then ShowAll=true; FilterIndicator.Text="🎯 Filter: ALL"; FilterIndicator.TextColor3=Colors.TextDim
+    else ShowAll=false; FilterIndicator.Text="🎯 Filter: "..count.." selected"; FilterIndicator.TextColor3=Colors.PrimaryLight end
+    StatusLabel.Text="📂 Filters loaded!"; task.wait(1); StatusLabel.Text="🟢 Live"
 end)
 
--- ============================================
--- CHECK IF BRAINROT SHOULD BE DISPLAYED
--- ============================================
+-- FILTER CHECK
 local function ShouldDisplay(brainrotName)
     if ShowAll then return true end
     for selectedName in pairs(SelectedFilters) do
-        if brainrotName:lower():find(selectedName:lower()) then
-            return true
-        end
+        if brainrotName:lower():find(selectedName:lower(), 1, true) then return true end
     end
     return false
 end
 
 -- ============================================
--- ADD ROW
+-- ADD ROW — FIXED JOIN BUTTON
 -- ============================================
 local totalCount = 0
-local Seen = {}
-local firstPoll = true
+local Seen       = {}
+local firstPoll  = true
 
 local function getColor(name)
-    if name:find("Gold") then return Colors.Gold end
+    if name:find("Gold")    then return Colors.Gold    end
     if name:find("Rainbow") then return Colors.Rainbow end
     return Colors.Text
 end
 
 local function addRow(name, value, owner, jobId)
     if not ShouldDisplay(name) then return end
-    
     totalCount = totalCount + 1
     local color = getColor(name)
 
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1,0,0,38)
+    row.Size = UDim2.new(1,0,0,40)
     row.BackgroundColor3 = Colors.PanelBg
     row.BackgroundTransparency = 0.5
     row.LayoutOrder = totalCount
@@ -935,58 +732,70 @@ local function addRow(name, value, owner, jobId)
     bar.Parent = row
 
     local lName = Instance.new("TextLabel")
-    lName.Size = UDim2.new(0.45,-15,1,0)
-    lName.Position = UDim2.new(0,12,0,0)
-    lName.BackgroundTransparency = 1
-    lName.Text = name
-    lName.TextColor3 = color
-    lName.TextSize = 11
-    lName.Font = Enum.Font.GothamBold
-    lName.TextXAlignment = Enum.TextXAlignment.Left
-    lName.TextTruncate = Enum.TextTruncate.AtEnd
-    lName.Parent = row
+    lName.Size=UDim2.new(0.42,-15,1,0); lName.Position=UDim2.new(0,12,0,0)
+    lName.BackgroundTransparency=1; lName.Text=name; lName.TextColor3=color
+    lName.TextSize=11; lName.Font=Enum.Font.GothamBold
+    lName.TextXAlignment=Enum.TextXAlignment.Left
+    lName.TextTruncate=Enum.TextTruncate.AtEnd; lName.Parent=row
 
     local lValue = Instance.new("TextLabel")
-    lValue.Size = UDim2.new(0.2,0,1,0)
-    lValue.Position = UDim2.new(0.45,0,0,0)
-    lValue.BackgroundTransparency = 1
-    lValue.Text = value
-    lValue.TextColor3 = Colors.PrimaryLight
-    lValue.TextSize = 10
-    lValue.Font = Enum.Font.GothamBold
-    lValue.TextXAlignment = Enum.TextXAlignment.Left
-    lValue.Parent = row
+    lValue.Size=UDim2.new(0.18,0,1,0); lValue.Position=UDim2.new(0.42,0,0,0)
+    lValue.BackgroundTransparency=1; lValue.Text=value; lValue.TextColor3=Colors.PrimaryLight
+    lValue.TextSize=10; lValue.Font=Enum.Font.GothamBold
+    lValue.TextXAlignment=Enum.TextXAlignment.Left; lValue.Parent=row
 
     local lOwner = Instance.new("TextLabel")
-    lOwner.Size = UDim2.new(0.2,0,1,0)
-    lOwner.Position = UDim2.new(0.65,0,0,0)
-    lOwner.BackgroundTransparency = 1
-    lOwner.Text = owner
-    lOwner.TextColor3 = Colors.TextDim
-    lOwner.TextSize = 9
-    lOwner.Font = Enum.Font.Gotham
-    lOwner.TextXAlignment = Enum.TextXAlignment.Left
-    lOwner.TextTruncate = Enum.TextTruncate.AtEnd
-    lOwner.Parent = row
+    lOwner.Size=UDim2.new(0.22,0,1,0); lOwner.Position=UDim2.new(0.60,0,0,0)
+    lOwner.BackgroundTransparency=1; lOwner.Text=owner; lOwner.TextColor3=Colors.TextDim
+    lOwner.TextSize=9; lOwner.Font=Enum.Font.Gotham
+    lOwner.TextXAlignment=Enum.TextXAlignment.Left
+    lOwner.TextTruncate=Enum.TextTruncate.AtEnd; lOwner.Parent=row
 
+    -- ============================================
+    -- FIXED JOIN BUTTON
+    -- Uses TeleportToPlaceInstance to join the
+    -- exact server where the brainrot was found
+    -- ============================================
     local joinBtn = Instance.new("TextButton")
-    joinBtn.Size = UDim2.new(0,60,0,30)
-    joinBtn.Position = UDim2.new(1,-68,0.5,-15)
+    joinBtn.Size = UDim2.new(0,62,0,32)
+    joinBtn.Position = UDim2.new(1,-70,0.5,-16)
     joinBtn.BackgroundColor3 = Colors.Success
-    joinBtn.BackgroundTransparency = 0.2
-    joinBtn.Text = "JOIN"
-    joinBtn.TextColor3 = Colors.Text
-    joinBtn.TextSize = 10
+    joinBtn.BackgroundTransparency = 0.15
+    joinBtn.Text = "⚡ JOIN"
+    joinBtn.TextColor3 = Color3.fromRGB(0,0,0)
+    joinBtn.TextSize = 11
     joinBtn.Font = Enum.Font.GothamBold
     joinBtn.BorderSizePixel = 0
     joinBtn.Parent = row
     Instance.new("UICorner",joinBtn).CornerRadius = UDim.new(0,5)
 
     joinBtn.MouseButton1Click:Connect(function()
-        StatusLabel.Text = "🚀 Joining: " .. name
+        if jobId == "" or jobId == nil then
+            StatusLabel.Text = "⚠️ No server ID — cannot join"
+            return
+        end
+
+        StatusLabel.Text = "🚀 Joining server for: " .. name
         joinBtn.Text = "⌛"
+        joinBtn.BackgroundColor3 = Colors.PrimaryLight
+
         task.spawn(function()
-            TeleportService:Teleport(game.PlaceId, jobId)
+            local player = game.Players.LocalPlayer
+            -- TeleportToPlaceInstance joins the exact server by job ID
+            local ok, err = pcall(function()
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, player)
+            end)
+            if not ok then
+                -- Fallback: try the older API just in case
+                local ok2, err2 = pcall(function()
+                    TeleportService:Teleport(game.PlaceId, jobId)
+                end)
+                if not ok2 then
+                    StatusLabel.Text = "❌ Join failed: " .. tostring(err2)
+                    joinBtn.Text = "⚡ JOIN"
+                    joinBtn.BackgroundColor3 = Colors.Success
+                end
+            end
         end)
     end)
 
@@ -994,12 +803,11 @@ local function addRow(name, value, owner, jobId)
 end
 
 -- ============================================
--- POLL LOOP
+-- POLL LOOP — real-time only
 -- ============================================
 task.spawn(function()
     while true do
         local body = httpGet(API_URL .. "?t=" .. tick())
-
         if not body then
             StatusLabel.Text = "⚠️ No response"
             StatusDot.BackgroundColor3 = Colors.Error
@@ -1025,7 +833,7 @@ task.spawn(function()
                             if id ~= "" and not Seen[id] then
                                 Seen[id] = true
                                 addRow(
-                                    tostring(item.name or "Unknown"),
+                                    tostring(item.name  or "Unknown"),
                                     tostring(item.value or "$?"),
                                     tostring(item.owner or "?"),
                                     tostring(item.jobId or "")
@@ -1046,89 +854,42 @@ task.spawn(function()
                 end
             end
         end
-
         task.wait(POLL_INTERVAL)
     end
 end)
 
--- ============================================
 -- DRAG & TOGGLE
--- ============================================
 local dragging, dragStart, startPos = false, nil, nil
-
 TitleBar.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true; dragStart = i.Position; startPos = MainFrame.Position
-    end
-end)
-
+        dragging=true; dragStart=i.Position; startPos=MainFrame.Position end end)
 UserInputService.InputChanged:Connect(function(i)
     if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - dragStart
-        MainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + d.X,
-            startPos.Y.Scale, startPos.Y.Offset + d.Y
-        )
-    end
-end)
-
+        local d=i.Position-dragStart
+        MainFrame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y) end end)
 UserInputService.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging=false end end)
 
 local guiVisible = true
 UserInputService.InputBegan:Connect(function(i, gp)
     if gp then return end
-    if i.KeyCode == Enum.KeyCode.E then
-        guiVisible = not guiVisible
-        MainFrame.Visible = guiVisible
-    end
-end)
+    if i.KeyCode == Enum.KeyCode.E then guiVisible=not guiVisible; MainFrame.Visible=guiVisible end end)
 
 CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
--- ============================================
--- INITIALIZATION - LOAD SAVED FILTERS
--- ============================================
-print("")
-print("========================================")
-print("🥭 COCOX BRAINROT RECEIVER V3.6")
-print("========================================")
-print("📡 API: " .. API_URL)
-print("💾 Save file: " .. SAVE_FILE)
-print("📁 Location: " .. GetWorkspacePath())
-print("========================================")
-print("")
-print("[CocoX] Total brainrots: " .. #AllBrainrots)
-print("[CocoX] Press E to toggle GUI")
-print("[CocoX] Use FILTER tab to select brainrots")
-print("[CocoX] Click 💾 SAVE to save your selection")
-print("[CocoX] Click 📂 LOAD to load saved selection")
-print("")
-
--- Load saved filters
+-- INIT
 LoadFilters()
-
--- Update UI after loading
 task.wait(0.5)
-for name, selected in pairs(SelectedFilters) do
+for name in pairs(SelectedFilters) do
     local ref = CheckboxReferences[name]
     if ref then
-        ref.checkbox.Text = "☑"
-        ref.checkbox.BackgroundColor3 = Colors.Primary
-        ref.checkbox.BackgroundTransparency = 0
-        ref.label.TextColor3 = Colors.PrimaryLight
+        ref.checkbox.Text="☑"; ref.checkbox.BackgroundColor3=Colors.Primary
+        ref.checkbox.BackgroundTransparency=0; ref.label.TextColor3=Colors.PrimaryLight
     end
 end
+local count=0; for _ in pairs(SelectedFilters) do count=count+1 end
+if count==0 then ShowAll=true; FilterIndicator.Text="🎯 Filter: ALL"
+else ShowAll=false; FilterIndicator.Text="🎯 Filter: "..count.." selected" end
 
-local count = 0
-for _ in pairs(SelectedFilters) do count = count + 1 end
-if count == 0 then
-    ShowAll = true
-    FilterIndicator.Text = "🎯 Filter: ALL"
-else
-    ShowAll = false
-    FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
-end
-
-print("[CocoX] ✅ Ready! " .. (count > 0 and "Loaded " .. count .. " filters" or "No filters saved"))
+print("[CocoX V3.6] Ready — " .. API_URL)
+print("[CocoX] "..#AllBrainrots.." brainrots in database | Press E to toggle")
