@@ -1,119 +1,182 @@
 -- ============================================
--- COCOX AUTO JOIN PRIVATE - FIXED
--- Orange Theme | Movable GUI | Working Detection
+-- COCOX BRAINROT RECEIVER V3.6
+-- UNIVERSAL SAVE/LOAD - Works on ALL executors
+-- Press E to toggle | Orange Theme
 -- ============================================
 
--- SERVICES
-local Players = game:GetService("Players")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
+local TeleportService  = game:GetService("TeleportService")
+local HttpService      = game:GetService("HttpService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
+local TweenService     = game:GetService("TweenService")
+local CoreGui          = game:GetService("CoreGui")
+
+local API_URL       = "https://cocoxnotifier.replit.app/api/messages/roblox"
+local POLL_INTERVAL = 3
 
 -- ============================================
--- ORANGE COLOR SCHEME
+-- UNIVERSAL FILE FUNCTIONS (Works on ALL Executors)
+-- ============================================
+local SAVE_FILE = "CocoX_Filters.txt"
+
+-- Detect available file functions
+local hasWriteFile = writefile ~= nil
+local hasReadFile = readfile ~= nil
+local hasIsFile = isfile ~= nil
+local hasAppendFile = appendfile ~= nil
+
+-- Fallback using syn functions if available
+local function UniversalWriteFile(path, content)
+    if hasWriteFile then
+        writefile(path, content)
+        return true
+    elseif syn and syn.writefile then
+        syn.writefile(path, content)
+        return true
+    elseif secure_load and secure_load.writefile then
+        secure_load.writefile(path, content)
+        return true
+    else
+        return false
+    end
+end
+
+local function UniversalReadFile(path)
+    if hasReadFile then
+        return readfile(path)
+    elseif syn and syn.readfile then
+        return syn.readfile(path)
+    elseif secure_load and secure_load.readfile then
+        return secure_load.readfile(path)
+    else
+        return nil
+    end
+end
+
+local function UniversalFileExists(path)
+    if hasIsFile then
+        return isfile(path)
+    elseif syn and syn.isfile then
+        return syn.isfile(path)
+    elseif secure_load and secure_load.isfile then
+        return secure_load.isfile(path)
+    else
+        return false
+    end
+end
+
+-- Get workspace path for display
+local function GetWorkspacePath()
+    if syn and syn.getexecutorname then
+        return syn.getexecutorname() .. " workspace"
+    elseif getexecutorname then
+        return getexecutorname() .. " workspace"
+    else
+        return "executor workspace"
+    end
+end
+
+-- ============================================
+-- SAVE/LOAD FUNCTIONS
+-- ============================================
+local function SaveFilters()
+    local filtersToSave = {}
+    for name, selected in pairs(SelectedFilters) do
+        if selected then
+            table.insert(filtersToSave, name)
+        end
+    end
+    
+    local data = {
+        selected = filtersToSave,
+        showAll = ShowAll,
+        version = 2,
+        savedAt = os.date("%Y-%m-%d %H:%M:%S")
+    }
+    
+    local success, err = pcall(function()
+        local json = HttpService:JSONEncode(data)
+        UniversalWriteFile(SAVE_FILE, json)
+    end)
+    
+    if success then
+        StatusLabel.Text = "💾 Saved " .. #filtersToSave .. " filters!"
+        print("[CocoX] ✅ Saved " .. #filtersToSave .. " filters to " .. SAVE_FILE)
+        print("[CocoX] 📁 Location: " .. GetWorkspacePath())
+        task.wait(1.5)
+        StatusLabel.Text = "🟢 Live"
+    else
+        print("[CocoX] ❌ Failed to save filters:", err)
+        StatusLabel.Text = "❌ Save failed!"
+        task.wait(1.5)
+        StatusLabel.Text = "🟢 Live"
+    end
+end
+
+local function LoadFilters()
+    local success, data = pcall(function()
+        if not UniversalFileExists(SAVE_FILE) then
+            return nil
+        end
+        local content = UniversalReadFile(SAVE_FILE)
+        if not content or content == "" then
+            return nil
+        end
+        return HttpService:JSONDecode(content)
+    end)
+    
+    if success and data then
+        -- Clear existing filters
+        for name in pairs(SelectedFilters) do
+            SelectedFilters[name] = nil
+        end
+        
+        if data.selected then
+            for _, name in ipairs(data.selected) do
+                SelectedFilters[name] = true
+            end
+        end
+        if data.showAll ~= nil then
+            ShowAll = data.showAll
+        else
+            ShowAll = (#data.selected or 0) == 0
+        end
+        
+        print("[CocoX] ✅ Loaded " .. (#data.selected or 0) .. " filters from " .. SAVE_FILE)
+        if data.savedAt then
+            print("[CocoX] 📅 Saved on: " .. data.savedAt)
+        end
+        return true
+    else
+        print("[CocoX] 📭 No save file found, using defaults")
+        return false
+    end
+end
+
+-- ============================================
+-- COLORS
 -- ============================================
 local Colors = {
-    Primary = Color3.fromRGB(255, 140, 0),
-    PrimaryDark = Color3.fromRGB(200, 100, 0),
-    PrimaryLight = Color3.fromRGB(255, 180, 80),
-    Background = Color3.fromRGB(25, 20, 15),
-    PanelBg = Color3.fromRGB(35, 28, 22),
-    Text = Color3.fromRGB(255, 240, 220),
-    TextDim = Color3.fromRGB(200, 180, 150),
-    Success = Color3.fromRGB(80, 200, 80),
-    Error = Color3.fromRGB(255, 80, 80),
+    Primary      = Color3.fromRGB(255,140,0),
+    PrimaryDark  = Color3.fromRGB(200,100,0),
+    PrimaryLight = Color3.fromRGB(255,180,80),
+    Background   = Color3.fromRGB(15,12,10),
+    PanelBg      = Color3.fromRGB(25,20,18),
+    Text         = Color3.fromRGB(255,240,220),
+    TextDim      = Color3.fromRGB(200,180,150),
+    Success      = Color3.fromRGB(80,200,80),
+    Error        = Color3.fromRGB(255,80,80),
+    Gold         = Color3.fromRGB(255,215,0),
+    Rainbow      = Color3.fromRGB(255,100,255),
 }
 
 -- ============================================
--- SYNCHRONIZER (from leaked code)
--- ============================================
-local SyncInt = {_cache = {}, _data = nil}
-
-local function getInternalTable()
-    local Packages = ReplicatedStorage:FindFirstChild("Packages")
-    if not Packages then return nil end
-    local SynMod = Packages:FindFirstChild("Synchronizer")
-    if not SynMod then return nil end
-    local ok, syn = pcall(require, SynMod)
-    if not ok or not syn then return nil end
-    local Get = syn.Get
-    if type(Get) ~= "function" then return nil end
-    for i = 1, 5 do
-        local s, u = pcall(getupvalue, Get, i)
-        if s and type(u) == "table" then
-            if u.___private or u.___channels or u.___data then return u end
-            for k, v in pairs(u) do
-                if type(k) == "string" and (k:match("^Plot_") or type(v) == "table") then return u end
-            end
-        end
-    end
-    local s, e = pcall(getfenv, Get)
-    if s and e and e.self then return e.self end
-    return nil
-end
-
-local function stealthGet(n)
-    if not n or type(n) ~= "string" then return nil end
-    if SyncInt._cache[n] == false then return nil end
-    if SyncInt._data then
-        for _, k in ipairs({n, "Plot_" .. n, "Plot" .. n, n .. "_Channel", "Channel_" .. n}) do
-            if SyncInt._data[k] then
-                SyncInt._cache[n] = SyncInt._data[k]
-                return SyncInt._data[k]
-            end
-        end
-        for k, v in pairs(SyncInt._data) do
-            if type(k) == "string" and (k == n or k:find(n, 1, true)) and type(v) == "table" then
-                SyncInt._cache[n] = v
-                return v
-            end
-        end
-    end
-    SyncInt._cache[n] = false
-    return nil
-end
-
-local function sProp(ch, p)
-    if not ch or type(ch) ~= "table" then return nil end
-    if ch[p] then return ch[p] end
-    if type(ch.Get) == "function" then
-        local ok, r = pcall(ch.Get, ch, p)
-        if ok then return r end
-    end
-    local alts = {
-        Owner = {"owner", "Owner", "plotOwner", "PlotOwner"},
-        AnimalList = {"animalList", "AnimalList", "animals", "Animals", "pets"}
-    }
-    if alts[p] then
-        for _, a in ipairs(alts[p]) do
-            if ch[a] then return ch[a] end
-        end
-    end
-    return nil
-end
-
--- ============================================
--- GAME MODULES
--- ============================================
-local Datas = ReplicatedStorage:FindFirstChild("Datas")
-local Shared = ReplicatedStorage:FindFirstChild("Shared")
-local Utils = ReplicatedStorage:FindFirstChild("Utils")
-
-local AnimalsData = nil
-local AnimalsShared = nil
-
--- ============================================
--- COMPLETE BRAINROT DATABASE (FIXED - NO NIL VALUES)
+-- COMPLETE BRAINROT DATABASE
 -- ============================================
 local BrainrotDatabase = {
     Common = {
-        "Noobini Pizzanini", "Lirilì Larilà", "Tim Cheese", "Fluriflura",
-        "Talpa Di Fero", "Noobini Santanini", "Svinina Bombardino", "Raccooni Jandelini",
-        "Pipi Kiwi", "Tartaragno", "Pipi Corni", "Holy Arepa"
+        "Noobini Pizzanini", "Lirilì Larilà", "Tim Cheese", "Fluriflura", "Talpa Di Fero",
+        "Noobini Santanini", "Svinina Bombardino", "Raccooni Jandelini", "Pipi Kiwi",
+        "Tartaragno", "Pipi Corni", "Holy Arepa"
     },
     Rare = {
         "Trippi Troppi", "Tung Tung Tung Sahur", "Gangster Footera", "Bandito Bobritto",
@@ -168,828 +231,904 @@ local BrainrotDatabase = {
     OG = {
         "Strawberry Elephant", "Meowl", "Skibidi Toilet", "Headless Horseman",
         "Love Love Bear", "Griffin", "John Pork", "Nyan Cat", "Smurf Cat"
+    },
+    Special = {
+        "Cerberus", "Fragrama and Chocrama", "Hydra Bunny", "Los Bros", "Sammyni Fattini",
+        "Fortunu and Cashuru", "Signore Carapace", "Tictac Sahur", "La Jolly Grande",
+        "Garama and Madundung", "Reinito Sleighito", "Dragon Gingerini", "Money Money Reindeer",
+        "Tang Tang Keletang", "Pancake and Syrup", "Ventoliero Pavonero", "Los Tacoritas",
+        "Fishino Clownino", "W or L", "Eviledon", "La Lucky Grande", "La Extinct Grande",
+        "Dragon Cannelloni", "Las Sis", "La Casa Boo", "La Secret Combinasion", "Headless Horseman",
+        "Ketchuru and Musturu", "Tralaledon", "Cash or Card", "Burguro And Fryuro", "Elefanto Frigo",
+        "Spooky and Pumpky", "Los Amigos", "Tacorita Bicicleta", "Hydra Dragon Cannelloni",
+        "Los Spaghettis", "Cooki and Milki", "Nacho Spyder", "Los Sekolahs", "Dug dug dug",
+        "Los Primos", "La Easter Grande", "Rosey and Teddy", "Love Love Bear", 
+        "Hopilikalika Hopilikalako", "La Romantic Grande", "La Food Combinasion", "Arcadragon",
+        "Chipso and Queso", "Cloverat Clapat", "Celestial Pegasus", "Capitano Moby", 
+        "La Ginger Sekolah", "Chillin Chili", "Ginger Gerat", "Tirilikalika Tirilikalako",
+        "Boppin Bunny", "Ketupat Bros", "Celularcini Viciosini", "La Taco Combinasion",
+        "Lavadorito Spinito", "Skibidi Toilet", "Swaggy Bros", "Popcuru and Fizzuru", 
+        "Tuff Toucan", "La Supreme Combinasion", "Foxini Lanternini", "Strawberry Elephant",
+        "Ketupat Kepat", "Antonio", "Rosetti Tualetti", "Lovin Rose", "Orcaledon", 
+        "Duggy Bros", "Bunny and Eggy", "Mi Gatito", "Money Money Bros", "Noo my Candy", "Los Chillis"
+    },
+    GoldMutations = {
+        "Gold Noobini Pizzanini", "Gold Trippi Troppi", "Gold Cappuccino Assassino",
+        "Gold Burbaloni Loliloli", "Gold Frigo Camelo", "Gold Cocofanto Elefanto",
+        "Gold Matteo", "Gold Tralalero Tralala", "Gold Dragon Cannelloni", "Gold Girafa Celestre",
+        "Gold Gattatino Nyanino", "Gold Chihuanini Taconini", "Gold Odin Din Din Dun",
+        "Gold Espresso Signora", "Gold Ginger Globo", "Gold Frio Ninja"
+    },
+    RainbowMutations = {
+        "Rainbow Noobini Pizzanini", "Rainbow Trippi Troppi", "Rainbow Cappuccino Assassino",
+        "Rainbow Burbaloni Loliloli", "Rainbow Frigo Camelo", "Rainbow Cocofanto Elefanto",
+        "Rainbow Matteo", "Rainbow Tralalero Tralala", "Rainbow Dragon Cannelloni",
+        "Rainbow Bambini Crostini", "Rainbow Perochello Lemonchello"
+    },
+    DiamondMutations = {
+        "Diamond Noobini Pizzanini", "Diamond Trippi Troppi", "Diamond Cappuccino Assassino",
+        "Diamond Burbaloni Loliloli", "Diamond Bombardiro Crocodilo", "Diamond Matteo",
+        "Diamond Gattito Tacoto"
+    },
+    ShinyMutations = {
+        "Shiny Noobini Pizzanini", "Shiny Matteo", "Shiny Dragon Cannelloni",
+        "Shiny Cocofanto Elefanto", "Shiny Tralalero Tralala"
     }
 }
 
--- Create flattened list safely
+-- Flatten all brainrots
 local AllBrainrots = {}
+local RarityColors = {
+    Common = Color3.fromRGB(128,128,128),
+    Rare = Color3.fromRGB(0,112,221),
+    Epic = Color3.fromRGB(163,53,238),
+    Legendary = Color3.fromRGB(255,128,0),
+    Mythic = Color3.fromRGB(255,68,68),
+    BrainrotGod = Color3.fromRGB(0,204,255),
+    Secret = Color3.fromRGB(255,68,170),
+    OG = Color3.fromRGB(255,200,0),
+    Special = Color3.fromRGB(255,100,50),
+    GoldMutations = Color3.fromRGB(255,215,0),
+    RainbowMutations = Color3.fromRGB(255,100,255),
+    DiamondMutations = Color3.fromRGB(100,200,255),
+    ShinyMutations = Color3.fromRGB(200,100,255),
+}
+
 for rarity, list in pairs(BrainrotDatabase) do
-    if list and type(list) == "table" then
-        for _, name in ipairs(list) do
-            if name then
-                table.insert(AllBrainrots, {name = name, rarity = rarity})
-            end
-        end
+    for _, name in ipairs(list) do
+        table.insert(AllBrainrots, {name = name, rarity = rarity})
     end
 end
 
 -- ============================================
--- CONFIGURATION
+-- FILTER CONFIG
 -- ============================================
-local Config = {
-    AutoJoinEnabled = false,
-    TargetBrainrots = {},
-    MinValue = 1000000,
-    WebhookUrl = "",
-    ScanInterval = 2,
-    ServerHopDelay = 5,
-    CurrentPage = 1,
-}
+local SelectedFilters = {}
+local ShowAll = true
+local SearchTerm = ""
 
 -- ============================================
--- CREATE MOVABLE GUI
+-- HTTP WRAPPER
+-- ============================================
+local function httpGet(url)
+    local reqFn = (syn and syn.request) or request or (http and http.request)
+    if reqFn then
+        local ok, res = pcall(reqFn, {Url = url, Method = "GET"})
+        if ok and res and res.Body and res.Body ~= "" then
+            return res.Body
+        end
+    end
+    local ok2, body = pcall(function()
+        return HttpService:GetAsync(url, true)
+    end)
+    if ok2 and body and body ~= "" then return body end
+    return nil
+end
+
+-- ============================================
+-- CREATE GUI (SMALLER - 550x550)
 -- ============================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "CocoXAutoJoin"
+ScreenGui.Name = "CocoXBrainrot"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Parent = CoreGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 450, 0, 600)
-MainFrame.Position = UDim2.new(0.5, -225, 0.5, -300)
+MainFrame.Size = UDim2.new(0,550,0,550)
+MainFrame.Position = UDim2.new(0.5,-275,0.5,-275)
 MainFrame.BackgroundColor3 = Colors.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
-
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 12)
-Corner.Parent = MainFrame
+Instance.new("UICorner",MainFrame).CornerRadius = UDim.new(0,12)
 
 -- Title Bar
 local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.Size = UDim2.new(1,0,0,40)
 TitleBar.BackgroundColor3 = Colors.PrimaryDark
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
-
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 12)
-TitleCorner.Parent = TitleBar
+Instance.new("UICorner",TitleBar).CornerRadius = UDim.new(0,12)
 
 local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.new(1, -80, 1, 0)
-TitleText.Position = UDim2.new(0, 15, 0, 0)
+TitleText.Size = UDim2.new(1,-120,1,0)
+TitleText.Position = UDim2.new(0,12,0,0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "🥭 CocoX Auto Join Private"
+TitleText.Text = "🥭 CocoX Brainrot [E]"
 TitleText.TextColor3 = Colors.Text
-TitleText.TextSize = 16
+TitleText.TextSize = 13
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.Font = Enum.Font.GothamBold
 TitleText.Parent = TitleBar
 
+local StatusDot = Instance.new("Frame")
+StatusDot.Size = UDim2.new(0,10,0,10)
+StatusDot.Position = UDim2.new(1,-45,0.5,-5)
+StatusDot.BackgroundColor3 = Colors.Success
+StatusDot.BorderSizePixel = 0
+StatusDot.Parent = TitleBar
+Instance.new("UICorner",StatusDot).CornerRadius = UDim.new(0,5)
+
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -38, 0, 4)
+CloseBtn.Size = UDim2.new(0,28,0,28)
+CloseBtn.Position = UDim2.new(1,-34,0,6)
 CloseBtn.BackgroundColor3 = Colors.Error
 CloseBtn.BackgroundTransparency = 0.2
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Colors.Text
-CloseBtn.TextSize = 18
+CloseBtn.TextSize = 16
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.BorderSizePixel = 0
 CloseBtn.Parent = TitleBar
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 8)
-CloseCorner.Parent = CloseBtn
-
-local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 32, 0, 32)
-MinBtn.Position = UDim2.new(1, -75, 0, 4)
-MinBtn.BackgroundColor3 = Colors.Primary
-MinBtn.BackgroundTransparency = 0.3
-MinBtn.Text = "−"
-MinBtn.TextColor3 = Colors.Text
-MinBtn.TextSize = 22
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.BorderSizePixel = 0
-MinBtn.Parent = TitleBar
-
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 8)
-MinCorner.Parent = MinBtn
+Instance.new("UICorner",CloseBtn).CornerRadius = UDim.new(0,7)
 
 -- Tab Bar
 local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, 0, 0, 45)
-TabBar.Position = UDim2.new(0, 0, 0, 40)
+TabBar.Size = UDim2.new(1,0,0,35)
+TabBar.Position = UDim2.new(0,0,0,40)
 TabBar.BackgroundColor3 = Colors.PanelBg
 TabBar.BorderSizePixel = 0
 TabBar.Parent = MainFrame
 
-local SettingsTabBtn = Instance.new("TextButton")
-SettingsTabBtn.Size = UDim2.new(0.5, 0, 1, 0)
-SettingsTabBtn.Position = UDim2.new(0, 0, 0, 0)
-SettingsTabBtn.BackgroundColor3 = Colors.Primary
-SettingsTabBtn.Text = "⚙ SETTINGS"
-SettingsTabBtn.TextColor3 = Colors.Text
-SettingsTabBtn.TextSize = 14
-SettingsTabBtn.Font = Enum.Font.GothamBold
-SettingsTabBtn.BorderSizePixel = 0
-SettingsTabBtn.Parent = TabBar
+local ScannerTab = Instance.new("TextButton")
+ScannerTab.Size = UDim2.new(0.5,0,1,0)
+ScannerTab.BackgroundColor3 = Colors.Primary
+ScannerTab.Text = "🔍 SCANNER"
+ScannerTab.TextColor3 = Colors.Text
+ScannerTab.TextSize = 12
+ScannerTab.Font = Enum.Font.GothamBold
+ScannerTab.BorderSizePixel = 0
+ScannerTab.Parent = TabBar
 
-local BrainrotTabBtn = Instance.new("TextButton")
-BrainrotTabBtn.Size = UDim2.new(0.5, 0, 1, 0)
-BrainrotTabBtn.Position = UDim2.new(0.5, 0, 0, 0)
-BrainrotTabBtn.BackgroundColor3 = Colors.PanelBg
-BrainrotTabBtn.Text = "📋 BRAINROT LIST"
-BrainrotTabBtn.TextColor3 = Colors.TextDim
-BrainrotTabBtn.TextSize = 14
-BrainrotTabBtn.Font = Enum.Font.GothamBold
-BrainrotTabBtn.BorderSizePixel = 0
-BrainrotTabBtn.Parent = TabBar
+local FilterTab = Instance.new("TextButton")
+FilterTab.Size = UDim2.new(0.5,0,1,0)
+FilterTab.Position = UDim2.new(0.5,0,0,0)
+FilterTab.BackgroundColor3 = Colors.PanelBg
+FilterTab.Text = "🎯 FILTER"
+FilterTab.TextColor3 = Colors.TextDim
+FilterTab.TextSize = 12
+FilterTab.Font = Enum.Font.GothamBold
+FilterTab.BorderSizePixel = 0
+FilterTab.Parent = TabBar
+
+-- Save/Load Buttons on Title Bar
+local SaveBtn = Instance.new("TextButton")
+SaveBtn.Size = UDim2.new(0,50,0,26)
+SaveBtn.Position = UDim2.new(1,-100,0,7)
+SaveBtn.BackgroundColor3 = Colors.PrimaryDark
+SaveBtn.BackgroundTransparency = 0.3
+SaveBtn.Text = "💾 SAVE"
+SaveBtn.TextColor3 = Colors.Text
+SaveBtn.TextSize = 10
+SaveBtn.Font = Enum.Font.GothamBold
+SaveBtn.BorderSizePixel = 0
+SaveBtn.Parent = TitleBar
+Instance.new("UICorner",SaveBtn).CornerRadius = UDim.new(0,5)
+
+local LoadBtn = Instance.new("TextButton")
+LoadBtn.Size = UDim2.new(0,50,0,26)
+LoadBtn.Position = UDim2.new(1,-155,0,7)
+LoadBtn.BackgroundColor3 = Colors.PrimaryDark
+LoadBtn.BackgroundTransparency = 0.3
+LoadBtn.Text = "📂 LOAD"
+LoadBtn.TextColor3 = Colors.Text
+LoadBtn.TextSize = 10
+LoadBtn.Font = Enum.Font.GothamBold
+LoadBtn.BorderSizePixel = 0
+LoadBtn.Parent = TitleBar
+Instance.new("UICorner",LoadBtn).CornerRadius = UDim.new(0,5)
 
 -- ============================================
--- PAGE 1: SETTINGS
+-- SCANNER PAGE
 -- ============================================
-local SettingsPage = Instance.new("ScrollingFrame")
-SettingsPage.Size = UDim2.new(1, -20, 1, -95)
-SettingsPage.Position = UDim2.new(0, 10, 0, 90)
-SettingsPage.BackgroundTransparency = 1
-SettingsPage.ScrollBarThickness = 4
-SettingsPage.CanvasSize = UDim2.new(0, 0, 0, 0)
-SettingsPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-SettingsPage.Visible = true
-SettingsPage.Parent = MainFrame
+local ScannerPage = Instance.new("Frame")
+ScannerPage.Size = UDim2.new(1,0,1,-75)
+ScannerPage.Position = UDim2.new(0,0,0,75)
+ScannerPage.BackgroundTransparency = 1
+ScannerPage.Visible = true
+ScannerPage.Parent = MainFrame
 
-local SettingsLayout = Instance.new("UIListLayout")
-SettingsLayout.Padding = UDim.new(0, 12)
-SettingsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SettingsLayout.Parent = SettingsPage
+local StatsFrame = Instance.new("Frame")
+StatsFrame.Size = UDim2.new(1,-16,0,50)
+StatsFrame.Position = UDim2.new(0,8,0,8)
+StatsFrame.BackgroundColor3 = Colors.PanelBg
+StatsFrame.BackgroundTransparency = 0.4
+StatsFrame.Parent = ScannerPage
+Instance.new("UICorner",StatsFrame).CornerRadius = UDim.new(0,8)
 
--- Status Panel
-local StatusFrame = Instance.new("Frame")
-StatusFrame.Size = UDim2.new(1, 0, 0, 60)
-StatusFrame.BackgroundColor3 = Colors.PanelBg
-StatusFrame.BackgroundTransparency = 0.5
-StatusFrame.Parent = SettingsPage
-
-local StatusCorner = Instance.new("UICorner")
-StatusCorner.CornerRadius = UDim.new(0, 8)
-StatusCorner.Parent = StatusFrame
+local CountLabel = Instance.new("TextLabel")
+CountLabel.Size = UDim2.new(1,-10,0,18)
+CountLabel.Position = UDim2.new(0,5,0,5)
+CountLabel.BackgroundTransparency = 1
+CountLabel.Text = "📡 Brainrots: 0"
+CountLabel.TextColor3 = Colors.PrimaryLight
+CountLabel.TextSize = 11
+CountLabel.Font = Enum.Font.GothamBold
+CountLabel.TextXAlignment = Enum.TextXAlignment.Left
+CountLabel.Parent = StatsFrame
 
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(1, -20, 1, 0)
-StatusLabel.Position = UDim2.new(0, 10, 0, 0)
+StatusLabel.Size = UDim2.new(1,-10,0,18)
+StatusLabel.Position = UDim2.new(0,5,0,25)
 StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "Status: Idle\nReady to start"
-StatusLabel.TextColor3 = Colors.Text
-StatusLabel.TextSize = 12
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.TextYAlignment = Enum.TextYAlignment.Center
+StatusLabel.Text = "🟡 Connecting..."
+StatusLabel.TextColor3 = Colors.TextDim
+StatusLabel.TextSize = 10
 StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Parent = StatusFrame
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = StatsFrame
 
--- Selected Count
-local SelectedCountFrame = Instance.new("Frame")
-SelectedCountFrame.Size = UDim2.new(1, 0, 0, 40)
-SelectedCountFrame.BackgroundColor3 = Colors.PanelBg
-SelectedCountFrame.BackgroundTransparency = 0.5
-SelectedCountFrame.Parent = SettingsPage
+local FilterIndicator = Instance.new("TextLabel")
+FilterIndicator.Size = UDim2.new(0,160,0,22)
+FilterIndicator.Position = UDim2.new(1,-168,0,14)
+FilterIndicator.BackgroundColor3 = Colors.PrimaryDark
+FilterIndicator.BackgroundTransparency = 0.3
+FilterIndicator.Text = "🎯 Filter: ALL"
+FilterIndicator.TextColor3 = Colors.TextDim
+FilterIndicator.TextSize = 9
+FilterIndicator.Font = Enum.Font.Gotham
+FilterIndicator.Parent = StatsFrame
+Instance.new("UICorner",FilterIndicator).CornerRadius = UDim.new(0,5)
 
-local SelectedCountCorner = Instance.new("UICorner")
-SelectedCountCorner.CornerRadius = UDim.new(0, 8)
-SelectedCountCorner.Parent = SelectedCountFrame
+local HeaderFrame = Instance.new("Frame")
+HeaderFrame.Size = UDim2.new(1,-16,0,30)
+HeaderFrame.Position = UDim2.new(0,8,0,65)
+HeaderFrame.BackgroundColor3 = Colors.PrimaryDark
+HeaderFrame.BackgroundTransparency = 0.4
+HeaderFrame.Parent = ScannerPage
+Instance.new("UICorner",HeaderFrame).CornerRadius = UDim.new(0,6)
 
-local SelectedCountLabel = Instance.new("TextLabel")
-SelectedCountLabel.Size = UDim2.new(1, -20, 1, 0)
-SelectedCountLabel.Position = UDim2.new(0, 10, 0, 0)
-SelectedCountLabel.BackgroundTransparency = 1
-SelectedCountLabel.Text = "🎯 Selected Brainrots: 0 / " .. #AllBrainrots
-SelectedCountLabel.TextColor3 = Colors.PrimaryLight
-SelectedCountLabel.TextSize = 13
-SelectedCountLabel.TextXAlignment = Enum.TextXAlignment.Left
-SelectedCountLabel.Font = Enum.Font.GothamBold
-SelectedCountLabel.Parent = SelectedCountFrame
+local function hLabel(parent, size, pos, text)
+    local l = Instance.new("TextLabel")
+    l.Size = size; l.Position = pos
+    l.BackgroundTransparency = 1
+    l.Text = text; l.TextColor3 = Colors.Text
+    l.TextSize = 10; l.Font = Enum.Font.GothamBold
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = parent
+end
+hLabel(HeaderFrame, UDim2.new(0.45,0,1,0), UDim2.new(0,8,0,0),  "🧠 Brainrot")
+hLabel(HeaderFrame, UDim2.new(0.2,0,1,0),  UDim2.new(0.45,0,0,0),"💰 Value")
+hLabel(HeaderFrame, UDim2.new(0.25,0,1,0), UDim2.new(0.65,0,0,0),"👤 Owner")
 
--- Value Filter
-local ValueFrame = Instance.new("Frame")
-ValueFrame.Size = UDim2.new(1, 0, 0, 70)
-ValueFrame.BackgroundColor3 = Colors.PanelBg
-ValueFrame.BackgroundTransparency = 0.5
-ValueFrame.Parent = SettingsPage
+local ListFrame = Instance.new("Frame")
+ListFrame.Size = UDim2.new(1,-16,1,-105)
+ListFrame.Position = UDim2.new(0,8,0,100)
+ListFrame.BackgroundColor3 = Colors.PanelBg
+ListFrame.BackgroundTransparency = 0.3
+ListFrame.Parent = ScannerPage
+Instance.new("UICorner",ListFrame).CornerRadius = UDim.new(0,8)
 
-local ValueCorner = Instance.new("UICorner")
-ValueCorner.CornerRadius = UDim.new(0, 8)
-ValueCorner.Parent = ValueFrame
-
-local ValueLabel = Instance.new("TextLabel")
-ValueLabel.Size = UDim2.new(1, -20, 0, 25)
-ValueLabel.Position = UDim2.new(0, 10, 0, 5)
-ValueLabel.BackgroundTransparency = 1
-ValueLabel.Text = "💰 Minimum Value: 1,000,000"
-ValueLabel.TextColor3 = Colors.Text
-ValueLabel.TextSize = 12
-ValueLabel.Font = Enum.Font.Gotham
-ValueLabel.TextXAlignment = Enum.TextXAlignment.Left
-ValueLabel.Parent = ValueFrame
-
-local ValueSlider = Instance.new("TextButton")
-ValueSlider.Size = UDim2.new(0.95, 0, 0, 30)
-ValueSlider.Position = UDim2.new(0.025, 0, 0, 35)
-ValueSlider.BackgroundColor3 = Colors.PrimaryDark
-ValueSlider.Text = "Set Value (Click)"
-ValueSlider.TextColor3 = Colors.Text
-ValueSlider.TextSize = 12
-ValueSlider.Font = Enum.Font.Gotham
-ValueSlider.Parent = ValueFrame
-
-local SliderCorner = Instance.new("UICorner")
-SliderCorner.CornerRadius = UDim.new(0, 6)
-SliderCorner.Parent = ValueSlider
-
--- Discord Webhook
-local WebhookFrame = Instance.new("Frame")
-WebhookFrame.Size = UDim2.new(1, 0, 0, 70)
-WebhookFrame.BackgroundColor3 = Colors.PanelBg
-WebhookFrame.BackgroundTransparency = 0.5
-WebhookFrame.Parent = SettingsPage
-
-local WebhookCorner = Instance.new("UICorner")
-WebhookCorner.CornerRadius = UDim.new(0, 8)
-WebhookCorner.Parent = WebhookFrame
-
-local WebhookStatus = Instance.new("TextLabel")
-WebhookStatus.Size = UDim2.new(1, -20, 0, 25)
-WebhookStatus.Position = UDim2.new(0, 10, 0, 5)
-WebhookStatus.BackgroundTransparency = 1
-WebhookStatus.Text = "📡 Discord Webhook: Not Set"
-WebhookStatus.TextColor3 = Colors.Text
-WebhookStatus.TextSize = 12
-WebhookStatus.Font = Enum.Font.Gotham
-WebhookStatus.TextXAlignment = Enum.TextXAlignment.Left
-WebhookStatus.Parent = WebhookFrame
-
-local SetWebhookBtn = Instance.new("TextButton")
-SetWebhookBtn.Size = UDim2.new(0.95, 0, 0, 30)
-SetWebhookBtn.Position = UDim2.new(0.025, 0, 0, 35)
-SetWebhookBtn.BackgroundColor3 = Colors.PrimaryDark
-SetWebhookBtn.Text = "Set Webhook URL"
-SetWebhookBtn.TextColor3 = Colors.Text
-SetWebhookBtn.TextSize = 12
-SetWebhookBtn.Font = Enum.Font.Gotham
-SetWebhookBtn.Parent = WebhookFrame
-
-local WebhookBtnCorner = Instance.new("UICorner")
-WebhookBtnCorner.CornerRadius = UDim.new(0, 6)
-WebhookBtnCorner.Parent = SetWebhookBtn
-
--- Start Button
-local AutoJoinBtn = Instance.new("TextButton")
-AutoJoinBtn.Size = UDim2.new(1, 0, 0, 50)
-AutoJoinBtn.BackgroundColor3 = Colors.Primary
-AutoJoinBtn.Text = "▶ START AUTO JOINER"
-AutoJoinBtn.TextColor3 = Colors.Text
-AutoJoinBtn.TextSize = 16
-AutoJoinBtn.Font = Enum.Font.GothamBold
-AutoJoinBtn.Parent = SettingsPage
-
-local AutoJoinCorner = Instance.new("UICorner")
-AutoJoinCorner.CornerRadius = UDim.new(0, 8)
-AutoJoinCorner.Parent = AutoJoinBtn
-
--- Log Display
-local LogFrame = Instance.new("Frame")
-LogFrame.Size = UDim2.new(1, 0, 0, 120)
-LogFrame.BackgroundColor3 = Colors.Background
-LogFrame.BackgroundTransparency = 0.3
-LogFrame.Parent = SettingsPage
-
-local LogCorner = Instance.new("UICorner")
-LogCorner.CornerRadius = UDim.new(0, 8)
-LogCorner.Parent = LogFrame
-
-local LogScroll = Instance.new("ScrollingFrame")
-LogScroll.Size = UDim2.new(1, -10, 1, -10)
-LogScroll.Position = UDim2.new(0, 5, 0, 5)
-LogScroll.BackgroundTransparency = 1
-LogScroll.ScrollBarThickness = 3
-LogScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-LogScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-LogScroll.Parent = LogFrame
-
-local LogLayout = Instance.new("UIListLayout")
-LogLayout.Padding = UDim.new(0, 3)
-LogLayout.SortOrder = Enum.SortOrder.LayoutOrder
-LogLayout.Parent = LogScroll
+local ListScroll = Instance.new("ScrollingFrame")
+ListScroll.Size = UDim2.new(1,-8,1,-8)
+ListScroll.Position = UDim2.new(0,4,0,4)
+ListScroll.BackgroundTransparency = 1
+ListScroll.ScrollBarThickness = 4
+ListScroll.CanvasSize = UDim2.new(0,0,0,0)
+ListScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ListScroll.Parent = ListFrame
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0,3)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Parent = ListScroll
 
 -- ============================================
--- PAGE 2: BRAINROT LIST (FIXED)
+-- FILTER PAGE (with SEARCH)
 -- ============================================
-local BrainrotPage = Instance.new("ScrollingFrame")
-BrainrotPage.Size = UDim2.new(1, -20, 1, -95)
-BrainrotPage.Position = UDim2.new(0, 10, 0, 90)
-BrainrotPage.BackgroundTransparency = 1
-BrainrotPage.ScrollBarThickness = 4
-BrainrotPage.CanvasSize = UDim2.new(0, 0, 0, 0)
-BrainrotPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
-BrainrotPage.Visible = false
-BrainrotPage.Parent = MainFrame
+local FilterPage = Instance.new("ScrollingFrame")
+FilterPage.Size = UDim2.new(1,0,1,-75)
+FilterPage.Position = UDim2.new(0,0,0,75)
+FilterPage.BackgroundTransparency = 1
+FilterPage.ScrollBarThickness = 4
+FilterPage.CanvasSize = UDim2.new(0,0,0,0)
+FilterPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+FilterPage.Visible = false
+FilterPage.Parent = MainFrame
 
-local BrainrotLayout = Instance.new("UIListLayout")
-BrainrotLayout.Padding = UDim.new(0, 5)
-BrainrotLayout.SortOrder = Enum.SortOrder.LayoutOrder
-BrainrotLayout.Parent = BrainrotPage
+-- Search Bar
+local SearchFrame = Instance.new("Frame")
+SearchFrame.Size = UDim2.new(1,-16,0,35)
+SearchFrame.Position = UDim2.new(0,8,0,8)
+SearchFrame.BackgroundColor3 = Colors.PanelBg
+SearchFrame.BackgroundTransparency = 0.3
+SearchFrame.Parent = FilterPage
+Instance.new("UICorner",SearchFrame).CornerRadius = UDim.new(0,8)
 
-local CategoryColors = {
-    Common = Color3.fromRGB(128, 128, 128),
-    Rare = Color3.fromRGB(0, 112, 221),
-    Epic = Color3.fromRGB(163, 53, 238),
-    Legendary = Color3.fromRGB(255, 128, 0),
-    Mythic = Color3.fromRGB(255, 68, 68),
-    BrainrotGod = Color3.fromRGB(0, 204, 255),
-    Secret = Color3.fromRGB(255, 68, 170),
-    OG = Color3.fromRGB(255, 200, 0),
-}
+local SearchIcon = Instance.new("TextLabel")
+SearchIcon.Size = UDim2.new(0,30,1,0)
+SearchIcon.Position = UDim2.new(0,5,0,0)
+SearchIcon.BackgroundTransparency = 1
+SearchIcon.Text = "🔍"
+SearchIcon.TextColor3 = Colors.TextDim
+SearchIcon.TextSize = 14
+SearchIcon.Font = Enum.Font.Gotham
+SearchIcon.Parent = SearchFrame
 
-local BrainrotToggles = {}
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(1,-45,1,0)
+SearchBox.Position = UDim2.new(0,40,0,0)
+SearchBox.BackgroundTransparency = 1
+SearchBox.PlaceholderText = "Search brainrots..."
+SearchBox.Text = ""
+SearchBox.TextColor3 = Colors.Text
+SearchBox.TextSize = 11
+SearchBox.Font = Enum.Font.Gotham
+SearchBox.ClearTextOnFocus = false
+SearchBox.Parent = SearchFrame
 
--- FIXED: Safely iterate through database
+-- Quick Action Buttons
+local QuickFrame = Instance.new("Frame")
+QuickFrame.Size = UDim2.new(1,-16,0,35)
+QuickFrame.Position = UDim2.new(0,8,0,50)
+QuickFrame.BackgroundColor3 = Colors.PanelBg
+QuickFrame.BackgroundTransparency = 0.3
+QuickFrame.Parent = FilterPage
+Instance.new("UICorner",QuickFrame).CornerRadius = UDim.new(0,8)
+
+local SelectAllBtn = Instance.new("TextButton")
+SelectAllBtn.Size = UDim2.new(0,100,0,28)
+SelectAllBtn.Position = UDim2.new(0,8,0,3)
+SelectAllBtn.BackgroundColor3 = Colors.PrimaryDark
+SelectAllBtn.Text = "Select All"
+SelectAllBtn.TextColor3 = Colors.Text
+SelectAllBtn.TextSize = 11
+SelectAllBtn.Font = Enum.Font.GothamBold
+SelectAllBtn.BorderSizePixel = 0
+SelectAllBtn.Parent = QuickFrame
+Instance.new("UICorner",SelectAllBtn).CornerRadius = UDim.new(0,6)
+
+local ClearAllBtn = Instance.new("TextButton")
+ClearAllBtn.Size = UDim2.new(0,100,0,28)
+ClearAllBtn.Position = UDim2.new(0,115,0,3)
+ClearAllBtn.BackgroundColor3 = Colors.Error
+ClearAllBtn.BackgroundTransparency = 0.3
+ClearAllBtn.Text = "Clear All"
+ClearAllBtn.TextColor3 = Colors.Text
+ClearAllBtn.TextSize = 11
+ClearAllBtn.Font = Enum.Font.GothamBold
+ClearAllBtn.BorderSizePixel = 0
+ClearAllBtn.Parent = QuickFrame
+Instance.new("UICorner",ClearAllBtn).CornerRadius = UDim.new(0,6)
+
+-- Filter Categories Container
+local FilterContent = Instance.new("Frame")
+FilterContent.Size = UDim2.new(1,0,0,0)
+FilterContent.BackgroundTransparency = 1
+FilterContent.Parent = FilterPage
+
+local FilterContentLayout = Instance.new("UIListLayout")
+FilterContentLayout.Padding = UDim.new(0,6)
+FilterContentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+FilterContentLayout.Parent = FilterContent
+
+-- Store category frames for search
+local CategoryFrames = {}
+local CategoryHeaders = {}
+local CheckboxReferences = {}
+
+-- Create category sections
 for rarity, brainrots in pairs(BrainrotDatabase) do
-    if brainrots and type(brainrots) == "table" and #brainrots > 0 then
+    if brainrots and #brainrots > 0 then
+        local sectionFrame = Instance.new("Frame")
+        sectionFrame.Size = UDim2.new(1,-16,0,35 + (#brainrots * 28))
+        sectionFrame.BackgroundColor3 = Colors.PanelBg
+        sectionFrame.BackgroundTransparency = 0.2
+        sectionFrame.Parent = FilterContent
+        Instance.new("UICorner",sectionFrame).CornerRadius = UDim.new(0,8)
         
-        local CategoryFrame = Instance.new("Frame")
-        CategoryFrame.Size = UDim2.new(1, 0, 0, 35)
-        CategoryFrame.BackgroundColor3 = CategoryColors[rarity] or Colors.PrimaryDark
-        CategoryFrame.BackgroundTransparency = 0.3
-        CategoryFrame.Parent = BrainrotPage
+        -- Category header
+        local header = Instance.new("TextLabel")
+        header.Size = UDim2.new(1,0,0,32)
+        header.BackgroundColor3 = RarityColors[rarity] or Colors.PrimaryDark
+        header.BackgroundTransparency = 0.2
+        header.Text = rarity:upper() .. " (" .. #brainrots .. ")"
+        header.TextColor3 = Colors.Text
+        header.TextSize = 11
+        header.Font = Enum.Font.GothamBold
+        header.TextXAlignment = Enum.TextXAlignment.Center
+        header.Parent = sectionFrame
+        Instance.new("UICorner",header).CornerRadius = UDim.new(0,8)
         
-        local CategoryCorner = Instance.new("UICorner")
-        CategoryCorner.CornerRadius = UDim.new(0, 6)
-        CategoryCorner.Parent = CategoryFrame
+        -- Content frame
+        local content = Instance.new("Frame")
+        content.Size = UDim2.new(1,0,0,#brainrots * 28)
+        content.Position = UDim2.new(0,0,0,32)
+        content.BackgroundTransparency = 1
+        content.Parent = sectionFrame
         
-        local CategoryText = Instance.new("TextLabel")
-        CategoryText.Size = UDim2.new(1, -20, 1, 0)
-        CategoryText.Position = UDim2.new(0, 10, 0, 0)
-        CategoryText.BackgroundTransparency = 1
-        CategoryText.Text = rarity:upper() .. " (" .. #brainrots .. " brainrots)"
-        CategoryText.TextColor3 = Colors.Text
-        CategoryText.TextSize = 13
-        CategoryText.Font = Enum.Font.GothamBold
-        CategoryText.TextXAlignment = Enum.TextXAlignment.Left
-        CategoryText.Parent = CategoryFrame
+        CategoryFrames[rarity] = {frame = content, items = {}}
+        CategoryHeaders[rarity] = header
         
-        local SelectAllBtn = Instance.new("TextButton")
-        SelectAllBtn.Size = UDim2.new(0, 80, 0, 25)
-        SelectAllBtn.Position = UDim2.new(1, -90, 0, 5)
-        SelectAllBtn.BackgroundColor3 = Colors.PrimaryDark
-        SelectAllBtn.Text = "Select All"
-        SelectAllBtn.TextColor3 = Colors.Text
-        SelectAllBtn.TextSize = 10
-        SelectAllBtn.Font = Enum.Font.Gotham
-        SelectAllBtn.BorderSizePixel = 0
-        SelectAllBtn.Parent = CategoryFrame
-        
-        local SelectAllCorner = Instance.new("UICorner")
-        SelectAllCorner.CornerRadius = UDim.new(0, 4)
-        SelectAllCorner.Parent = SelectAllBtn
-        
+        local yPos = 0
         for _, brainrot in ipairs(brainrots) do
-            if brainrot then
-                local ItemFrame = Instance.new("Frame")
-                ItemFrame.Size = UDim2.new(1, 0, 0, 28)
-                ItemFrame.BackgroundColor3 = Colors.PanelBg
-                ItemFrame.BackgroundTransparency = 0.4
-                ItemFrame.Parent = BrainrotPage
-                
-                local ItemCorner = Instance.new("UICorner")
-                ItemCorner.CornerRadius = UDim.new(0, 4)
-                ItemCorner.Parent = ItemFrame
-                
-                local ToggleBtn = Instance.new("TextButton")
-                ToggleBtn.Size = UDim2.new(0, 28, 0, 24)
-                ToggleBtn.Position = UDim2.new(0, 5, 0, 2)
-                ToggleBtn.BackgroundColor3 = Colors.PrimaryDark
-                ToggleBtn.BackgroundTransparency = 0.5
-                ToggleBtn.Text = "○"
-                ToggleBtn.TextColor3 = Colors.Text
-                ToggleBtn.TextSize = 16
-                ToggleBtn.Font = Enum.Font.GothamBold
-                ToggleBtn.BorderSizePixel = 0
-                ToggleBtn.Parent = ItemFrame
-                
-                local ToggleCorner = Instance.new("UICorner")
-                ToggleCorner.CornerRadius = UDim.new(0, 6)
-                ToggleCorner.Parent = ToggleBtn
-                
-                local NameLabel = Instance.new("TextLabel")
-                NameLabel.Size = UDim2.new(1, -45, 1, 0)
-                NameLabel.Position = UDim2.new(0, 40, 0, 0)
-                NameLabel.BackgroundTransparency = 1
-                NameLabel.Text = brainrot
-                NameLabel.TextColor3 = Colors.TextDim
-                NameLabel.TextSize = 11
-                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
-                NameLabel.Font = Enum.Font.Gotham
-                NameLabel.Parent = ItemFrame
-                
-                local RarityBadge = Instance.new("TextLabel")
-                RarityBadge.Size = UDim2.new(0, 80, 0, 20)
-                RarityBadge.Position = UDim2.new(1, -90, 0, 4)
-                RarityBadge.BackgroundColor3 = CategoryColors[rarity]
-                RarityBadge.BackgroundTransparency = 0.3
-                RarityBadge.Text = rarity
-                RarityBadge.TextColor3 = Colors.Text
-                RarityBadge.TextSize = 9
-                RarityBadge.Font = Enum.Font.GothamBold
-                RarityBadge.TextXAlignment = Enum.TextXAlignment.Center
-                RarityBadge.Parent = ItemFrame
-                
-                local RarityCorner = Instance.new("UICorner")
-                RarityCorner.CornerRadius = UDim.new(0, 4)
-                RarityCorner.Parent = RarityBadge
-                
-                ToggleBtn.MouseButton1Click:Connect(function()
-                    if Config.TargetBrainrots[brainrot] then
-                        Config.TargetBrainrots[brainrot] = nil
-                        ToggleBtn.Text = "○"
-                        ToggleBtn.BackgroundColor3 = Colors.PrimaryDark
-                        ToggleBtn.BackgroundTransparency = 0.5
-                        NameLabel.TextColor3 = Colors.TextDim
-                    else
-                        Config.TargetBrainrots[brainrot] = {name = brainrot, rarity = rarity}
-                        ToggleBtn.Text = "●"
-                        ToggleBtn.BackgroundColor3 = Colors.Primary
-                        ToggleBtn.BackgroundTransparency = 0
-                        NameLabel.TextColor3 = Colors.PrimaryLight
-                    end
-                    local count = 0
-                    for _ in pairs(Config.TargetBrainrots) do count = count + 1 end
-                    SelectedCountLabel.Text = "🎯 Selected Brainrots: " .. count .. " / " .. #AllBrainrots
-                end)
-                
-                BrainrotToggles[brainrot] = ToggleBtn
-                
-                SelectAllBtn.MouseButton1Click:Connect(function()
-                    for _, br in ipairs(brainrots) do
-                        if br and not Config.TargetBrainrots[br] then
-                            Config.TargetBrainrots[br] = {name = br, rarity = rarity}
-                            if BrainrotToggles[br] then
-                                BrainrotToggles[br].Text = "●"
-                                BrainrotToggles[br].BackgroundColor3 = Colors.Primary
-                                BrainrotToggles[br].BackgroundTransparency = 0
-                            end
-                        end
-                    end
-                    local count = 0
-                    for _ in pairs(Config.TargetBrainrots) do count = count + 1 end
-                    SelectedCountLabel.Text = "🎯 Selected Brainrots: " .. count .. " / " .. #AllBrainrots
-                    AddLog("Selected all " .. rarity .. " brainrots", false)
-                end)
+            local itemFrame = Instance.new("Frame")
+            itemFrame.Size = UDim2.new(1,0,0,26)
+            itemFrame.Position = UDim2.new(0,0,0,yPos)
+            itemFrame.BackgroundColor3 = Colors.PanelBg
+            itemFrame.BackgroundTransparency = 0.5
+            itemFrame.Parent = content
+            Instance.new("UICorner",itemFrame).CornerRadius = UDim.new(0,4)
+            
+            local checkbox = Instance.new("TextButton")
+            checkbox.Size = UDim2.new(0,26,0,22)
+            checkbox.Position = UDim2.new(0,5,0,2)
+            checkbox.BackgroundColor3 = Colors.PrimaryDark
+            checkbox.BackgroundTransparency = 0.5
+            checkbox.Text = "□"
+            checkbox.TextColor3 = Colors.Text
+            checkbox.TextSize = 14
+            checkbox.Font = Enum.Font.GothamBold
+            checkbox.BorderSizePixel = 0
+            checkbox.Parent = itemFrame
+            Instance.new("UICorner",checkbox).CornerRadius = UDim.new(0,4)
+            
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1,-42,1,0)
+            nameLabel.Position = UDim2.new(0,38,0,0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = brainrot
+            nameLabel.TextColor3 = Colors.Text
+            nameLabel.TextSize = 10
+            nameLabel.Font = Enum.Font.Gotham
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.Parent = itemFrame
+            
+            -- Store reference for updating UI
+            CheckboxReferences[brainrot] = {checkbox = checkbox, label = nameLabel}
+            
+            table.insert(CategoryFrames[rarity].items, {checkbox = checkbox, label = nameLabel, name = brainrot})
+            
+            -- Set initial state from loaded filters
+            if SelectedFilters[brainrot] then
+                checkbox.Text = "☑"
+                checkbox.BackgroundColor3 = Colors.Primary
+                checkbox.BackgroundTransparency = 0
+                nameLabel.TextColor3 = Colors.PrimaryLight
             end
+            
+            checkbox.MouseButton1Click:Connect(function()
+                if SelectedFilters[brainrot] then
+                    SelectedFilters[brainrot] = nil
+                    checkbox.Text = "□"
+                    checkbox.BackgroundColor3 = Colors.PrimaryDark
+                    checkbox.BackgroundTransparency = 0.5
+                    nameLabel.TextColor3 = Colors.TextDim
+                else
+                    SelectedFilters[brainrot] = true
+                    checkbox.Text = "☑"
+                    checkbox.BackgroundColor3 = Colors.Primary
+                    checkbox.BackgroundTransparency = 0
+                    nameLabel.TextColor3 = Colors.PrimaryLight
+                end
+                
+                local count = 0
+                for _ in pairs(SelectedFilters) do count = count + 1 end
+                if count == 0 then
+                    ShowAll = true
+                    FilterIndicator.Text = "🎯 Filter: ALL"
+                    FilterIndicator.TextColor3 = Colors.TextDim
+                else
+                    ShowAll = false
+                    FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
+                    FilterIndicator.TextColor3 = Colors.PrimaryLight
+                end
+            end)
+            
+            yPos = yPos + 28
         end
     end
 end
+
+-- Search function
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    SearchTerm = SearchBox.Text:lower()
+    for rarity, data in pairs(CategoryFrames) do
+        local visibleCount = 0
+        for _, item in ipairs(data.items) do
+            if SearchTerm == "" or item.name:lower():find(SearchTerm) then
+                item.checkbox.Parent.Visible = true
+                visibleCount = visibleCount + 1
+            else
+                item.checkbox.Parent.Visible = false
+            end
+        end
+        if SearchTerm == "" then
+            data.frame.Size = UDim2.new(1,0,0,#data.items * 28)
+            if CategoryHeaders[rarity] then
+                CategoryHeaders[rarity].Text = rarity:upper() .. " (" .. #data.items .. ")"
+            end
+        else
+            data.frame.Size = UDim2.new(1,0,0,visibleCount * 28)
+            if CategoryHeaders[rarity] then
+                CategoryHeaders[rarity].Text = rarity:upper() .. " (" .. visibleCount .. " shown)"
+            end
+        end
+    end
+end)
+
+-- Select All button
+SelectAllBtn.MouseButton1Click:Connect(function()
+    for rarity, data in pairs(CategoryFrames) do
+        for _, item in ipairs(data.items) do
+            SelectedFilters[item.name] = true
+            item.checkbox.Text = "☑"
+            item.checkbox.BackgroundColor3 = Colors.Primary
+            item.checkbox.BackgroundTransparency = 0
+            item.label.TextColor3 = Colors.PrimaryLight
+        end
+    end
+    ShowAll = false
+    FilterIndicator.Text = "🎯 Filter: ALL selected"
+    FilterIndicator.TextColor3 = Colors.PrimaryLight
+    StatusLabel.Text = "Filter updated"
+end)
+
+-- Clear All button
+ClearAllBtn.MouseButton1Click:Connect(function()
+    SelectedFilters = {}
+    for rarity, data in pairs(CategoryFrames) do
+        for _, item in ipairs(data.items) do
+            item.checkbox.Text = "□"
+            item.checkbox.BackgroundColor3 = Colors.PrimaryDark
+            item.checkbox.BackgroundTransparency = 0.5
+            item.label.TextColor3 = Colors.TextDim
+        end
+    end
+    ShowAll = true
+    FilterIndicator.Text = "🎯 Filter: ALL"
+    FilterIndicator.TextColor3 = Colors.TextDim
+    StatusLabel.Text = "Filter cleared"
+end)
+
+-- Position FilterContent after all categories
+FilterContent.Position = UDim2.new(0,8,0,92)
+FilterContent.Size = UDim2.new(1,-16,0,0)
+
+-- Update FilterContent height based on children
+local function updateFilterHeight()
+    local height = 0
+    for _, child in ipairs(FilterContent:GetChildren()) do
+        if child:IsA("Frame") then
+            height = height + child.Size.Y.Offset + 6
+        end
+    end
+    FilterContent.Size = UDim2.new(1,-16,0,height)
+    FilterPage.CanvasSize = UDim2.new(0,0,0,height + 100)
+end
+task.spawn(function()
+    task.wait(0.5)
+    updateFilterHeight()
+end)
+FilterContentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateFilterHeight)
 
 -- ============================================
 -- TAB SWITCHING
 -- ============================================
 local function SwitchToPage(page)
-    Config.CurrentPage = page
     if page == 1 then
-        SettingsPage.Visible = true
-        BrainrotPage.Visible = false
-        SettingsTabBtn.BackgroundColor3 = Colors.Primary
-        SettingsTabBtn.TextColor3 = Colors.Text
-        BrainrotTabBtn.BackgroundColor3 = Colors.PanelBg
-        BrainrotTabBtn.TextColor3 = Colors.TextDim
+        ScannerPage.Visible = true
+        FilterPage.Visible = false
+        ScannerTab.BackgroundColor3 = Colors.Primary
+        ScannerTab.TextColor3 = Colors.Text
+        FilterTab.BackgroundColor3 = Colors.PanelBg
+        FilterTab.TextColor3 = Colors.TextDim
     else
-        SettingsPage.Visible = false
-        BrainrotPage.Visible = true
-        SettingsTabBtn.BackgroundColor3 = Colors.PanelBg
-        SettingsTabBtn.TextColor3 = Colors.TextDim
-        BrainrotTabBtn.BackgroundColor3 = Colors.Primary
-        BrainrotTabBtn.TextColor3 = Colors.Text
+        ScannerPage.Visible = false
+        FilterPage.Visible = true
+        ScannerTab.BackgroundColor3 = Colors.PanelBg
+        ScannerTab.TextColor3 = Colors.TextDim
+        FilterTab.BackgroundColor3 = Colors.Primary
+        FilterTab.TextColor3 = Colors.Text
     end
 end
 
-SettingsTabBtn.MouseButton1Click:Connect(function() SwitchToPage(1) end)
-BrainrotTabBtn.MouseButton1Click:Connect(function() SwitchToPage(2) end)
+ScannerTab.MouseButton1Click:Connect(function() SwitchToPage(1) end)
+FilterTab.MouseButton1Click:Connect(function() SwitchToPage(2) end)
 
--- ============================================
--- DRAG FUNCTIONALITY
--- ============================================
-local dragging = false
-local dragStart, startPos
-
-TitleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-    end
+-- Save button
+SaveBtn.MouseButton1Click:Connect(function()
+    SaveFilters()
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
--- ============================================
--- UTILITY FUNCTIONS
--- ============================================
-local function AddLog(message, isError)
-    local logEntry = Instance.new("TextLabel")
-    logEntry.Size = UDim2.new(1, 0, 0, 18)
-    logEntry.BackgroundTransparency = 1
-    logEntry.Text = (isError and "⚠ " or "📌 ") .. message
-    logEntry.TextColor3 = isError and Colors.Error or Colors.TextDim
-    logEntry.TextSize = 10
-    logEntry.Font = Enum.Font.Gotham
-    logEntry.TextXAlignment = Enum.TextXAlignment.Left
-    logEntry.TextWrapped = true
-    logEntry.Parent = LogScroll
-    
-    task.wait(0.05)
-    LogScroll.CanvasPosition = Vector2.new(0, LogScroll.CanvasSize.Y.Offset)
-    
-    if #LogScroll:GetChildren() > 50 then
-        for i = 1, 10 do
-            local child = LogScroll:GetChildren()[i]
-            if child then child:Destroy() end
+-- Load button
+LoadBtn.MouseButton1Click:Connect(function()
+    LoadFilters()
+    -- Update UI checkboxes
+    for name, selected in pairs(SelectedFilters) do
+        local ref = CheckboxReferences[name]
+        if ref then
+            ref.checkbox.Text = "☑"
+            ref.checkbox.BackgroundColor3 = Colors.Primary
+            ref.checkbox.BackgroundTransparency = 0
+            ref.label.TextColor3 = Colors.PrimaryLight
         end
     end
-end
-
-local function SendDiscordNotification(brainrotName, serverId, value)
-    if Config.WebhookUrl == "" then return end
-    
-    local data = {
-        embeds = {{
-            title = "🧠 Brainrot Found!",
-            description = string.format("**Name:** %s\n**Server:** %s\n**Value:** 💰 %s", brainrotName, serverId, tostring(value)),
-            color = 0xFF8C00,
-            footer = {text = "CocoX Auto Join Private"}
-        }}
-    }
-    
-    pcall(function()
-        HttpService:PostAsync(Config.WebhookUrl, HttpService:JSONEncode(data))
-    end)
-end
-
-local function ServerHop()
-    AddLog("Searching new server...")
-    StatusLabel.Text = "Status: Searching..."
-    
-    local placeId = game.PlaceId
-    TeleportService:Teleport(placeId)
-end
-
--- ============================================
--- WORKING SCANNER
--- ============================================
-local function ScanCurrentServer()
-    local foundBrainrots = {}
-    
-    if not SyncInt._data then
-        return foundBrainrots
+    -- Clear unchecked
+    for name, ref in pairs(CheckboxReferences) do
+        if not SelectedFilters[name] then
+            ref.checkbox.Text = "□"
+            ref.checkbox.BackgroundColor3 = Colors.PrimaryDark
+            ref.checkbox.BackgroundTransparency = 0.5
+            ref.label.TextColor3 = Colors.TextDim
+        end
     end
+    local count = 0
+    for _ in pairs(SelectedFilters) do count = count + 1 end
+    if count == 0 then
+        ShowAll = true
+        FilterIndicator.Text = "🎯 Filter: ALL"
+        FilterIndicator.TextColor3 = Colors.TextDim
+    else
+        ShowAll = false
+        FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
+        FilterIndicator.TextColor3 = Colors.PrimaryLight
+    end
+    StatusLabel.Text = "📂 Filters loaded!"
+    task.wait(1)
+    StatusLabel.Text = "🟢 Live"
+end)
+
+-- ============================================
+-- CHECK IF BRAINROT SHOULD BE DISPLAYED
+-- ============================================
+local function ShouldDisplay(brainrotName)
+    if ShowAll then return true end
+    for selectedName in pairs(SelectedFilters) do
+        if brainrotName:lower():find(selectedName:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
+-- ============================================
+-- ADD ROW
+-- ============================================
+local totalCount = 0
+local Seen = {}
+local firstPoll = true
+
+local function getColor(name)
+    if name:find("Gold") then return Colors.Gold end
+    if name:find("Rainbow") then return Colors.Rainbow end
+    return Colors.Text
+end
+
+local function addRow(name, value, owner, jobId)
+    if not ShouldDisplay(name) then return end
     
-    local plots = workspace:FindFirstChild("Plots")
-    if not plots then return foundBrainrots end
-    
-    for _, plot in ipairs(plots:GetChildren()) do
-        local uid = plot.Name
-        
-        local ch = stealthGet(uid)
-        if not ch then goto continue end
-        
-        local animalList = sProp(ch, "AnimalList")
-        if not animalList then goto continue end
-        
-        local owner = sProp(ch, "Owner")
-        if not owner or owner.UserId == LocalPlayer.UserId then goto continue end
-        
-        for slot, animalData in pairs(animalList) do
-            if type(animalData) == "table" then
-                local animalId = animalData.Index
-                
-                local animalInfo = AnimalsData and AnimalsData[animalId]
-                if not animalInfo then goto next_animal end
-                
-                local genValue = 0
-                if AnimalsShared then
-                    genValue = AnimalsShared:GetGeneration(
-                        animalId, 
-                        animalData.Mutation, 
-                        animalData.Traits, 
-                        nil
-                    ) or 0
-                end
-                
-                if genValue < Config.MinValue then goto next_animal end
-                
-                local displayName = animalInfo.DisplayName or animalId
-                local mutation = animalData.Mutation or "None"
-                
-                local fullName = displayName
-                if mutation ~= "None" and mutation ~= "Normal" then
-                    fullName = mutation .. " " .. displayName
-                end
-                
-                -- Check against target list
-                local isTarget = false
-                for targetName, _ in pairs(Config.TargetBrainrots) do
-                    if fullName:lower():find(targetName:lower()) or 
-                       displayName:lower():find(targetName:lower()) then
-                        isTarget = true
-                        break
-                    end
-                end
-                
-                if isTarget then
-                    table.insert(foundBrainrots, {
-                        name = displayName,
-                        fullName = fullName,
-                        mutation = mutation,
-                        value = genValue,
-                        owner = owner.Name,
-                        plot = uid,
-                        slot = tostring(slot)
-                    })
-                    
-                    AddLog("🎯 FOUND: " .. fullName .. " | Value: $" .. tostring(genValue) .. "/s | Owner: " .. owner.Name)
-                    
-                    if Config.WebhookUrl ~= "" then
-                        SendDiscordNotification(fullName, game.JobId, genValue)
+    totalCount = totalCount + 1
+    local color = getColor(name)
+
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,38)
+    row.BackgroundColor3 = Colors.PanelBg
+    row.BackgroundTransparency = 0.5
+    row.LayoutOrder = totalCount
+    row.Parent = ListScroll
+    Instance.new("UICorner",row).CornerRadius = UDim.new(0,5)
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0,3,1,0)
+    bar.BackgroundColor3 = color
+    bar.BorderSizePixel = 0
+    bar.Parent = row
+
+    local lName = Instance.new("TextLabel")
+    lName.Size = UDim2.new(0.45,-15,1,0)
+    lName.Position = UDim2.new(0,12,0,0)
+    lName.BackgroundTransparency = 1
+    lName.Text = name
+    lName.TextColor3 = color
+    lName.TextSize = 11
+    lName.Font = Enum.Font.GothamBold
+    lName.TextXAlignment = Enum.TextXAlignment.Left
+    lName.TextTruncate = Enum.TextTruncate.AtEnd
+    lName.Parent = row
+
+    local lValue = Instance.new("TextLabel")
+    lValue.Size = UDim2.new(0.2,0,1,0)
+    lValue.Position = UDim2.new(0.45,0,0,0)
+    lValue.BackgroundTransparency = 1
+    lValue.Text = value
+    lValue.TextColor3 = Colors.PrimaryLight
+    lValue.TextSize = 10
+    lValue.Font = Enum.Font.GothamBold
+    lValue.TextXAlignment = Enum.TextXAlignment.Left
+    lValue.Parent = row
+
+    local lOwner = Instance.new("TextLabel")
+    lOwner.Size = UDim2.new(0.2,0,1,0)
+    lOwner.Position = UDim2.new(0.65,0,0,0)
+    lOwner.BackgroundTransparency = 1
+    lOwner.Text = owner
+    lOwner.TextColor3 = Colors.TextDim
+    lOwner.TextSize = 9
+    lOwner.Font = Enum.Font.Gotham
+    lOwner.TextXAlignment = Enum.TextXAlignment.Left
+    lOwner.TextTruncate = Enum.TextTruncate.AtEnd
+    lOwner.Parent = row
+
+    local joinBtn = Instance.new("TextButton")
+    joinBtn.Size = UDim2.new(0,60,0,30)
+    joinBtn.Position = UDim2.new(1,-68,0.5,-15)
+    joinBtn.BackgroundColor3 = Colors.Success
+    joinBtn.BackgroundTransparency = 0.2
+    joinBtn.Text = "JOIN"
+    joinBtn.TextColor3 = Colors.Text
+    joinBtn.TextSize = 10
+    joinBtn.Font = Enum.Font.GothamBold
+    joinBtn.BorderSizePixel = 0
+    joinBtn.Parent = row
+    Instance.new("UICorner",joinBtn).CornerRadius = UDim.new(0,5)
+
+    joinBtn.MouseButton1Click:Connect(function()
+        StatusLabel.Text = "🚀 Joining: " .. name
+        joinBtn.Text = "⌛"
+        task.spawn(function()
+            TeleportService:Teleport(game.PlaceId, jobId)
+        end)
+    end)
+
+    CountLabel.Text = "📡 Brainrots: " .. totalCount
+end
+
+-- ============================================
+-- POLL LOOP
+-- ============================================
+task.spawn(function()
+    while true do
+        local body = httpGet(API_URL .. "?t=" .. tick())
+
+        if not body then
+            StatusLabel.Text = "⚠️ No response"
+            StatusDot.BackgroundColor3 = Colors.Error
+        else
+            local ok, data = pcall(HttpService.JSONDecode, HttpService, body)
+            if not ok then
+                StatusLabel.Text = "⚠️ Parse error"
+            else
+                if type(data) == "table" then
+                    if firstPoll then
+                        for _, item in ipairs(data) do
+                            local id = tostring(item.id or item.timestamp or "")
+                            if id ~= "" then Seen[id] = true end
+                        end
+                        firstPoll = false
+                        StatusLabel.Text = "🟢 Live"
+                        StatusDot.BackgroundColor3 = Colors.Success
+                        print("[CocoX] Ready - watching for brainrots")
+                    else
+                        local newCount = 0
+                        for _, item in ipairs(data) do
+                            local id = tostring(item.id or item.timestamp or "")
+                            if id ~= "" and not Seen[id] then
+                                Seen[id] = true
+                                addRow(
+                                    tostring(item.name or "Unknown"),
+                                    tostring(item.value or "$?"),
+                                    tostring(item.owner or "?"),
+                                    tostring(item.jobId or "")
+                                )
+                                newCount = newCount + 1
+                            end
+                        end
+                        if newCount > 0 then
+                            StatusLabel.Text = "📨 " .. newCount .. " new!"
+                            StatusDot.BackgroundColor3 = Colors.PrimaryLight
+                            task.wait(0.5)
+                            StatusDot.BackgroundColor3 = Colors.Success
+                        else
+                            StatusLabel.Text = "🟢 Watching (" .. totalCount .. ")"
+                            StatusDot.BackgroundColor3 = Colors.Success
+                        end
                     end
                 end
             end
-            ::next_animal::
         end
-        ::continue::
-    end
-    
-    return foundBrainrots
-end
 
-local function CheckForTargets()
-    local foundBrainrots = ScanCurrentServer()
-    
-    if #foundBrainrots > 0 then
-        for _, brainrot in ipairs(foundBrainrots) do
-            AddLog("✅ TARGET FOUND: " .. brainrot.fullName .. " (Value: $" .. tostring(brainrot.value) .. "/s)")
-            StatusLabel.Text = "Status: TARGET FOUND - " .. brainrot.fullName
-        end
-        return true, foundBrainrots[1].fullName
-    end
-    
-    return false, nil
-end
-
--- ============================================
--- AUTO JOINER LOOP
--- ============================================
-local autoJoinerRunning = false
-local autoJoinerActive = false
-
-local function StartAutoJoiner()
-    if autoJoinerRunning then return end
-    autoJoinerRunning = true
-    
-    AddLog("🚀 Auto Joiner started!")
-    StatusLabel.Text = "Status: Running..."
-    AutoJoinBtn.BackgroundColor3 = Colors.Error
-    AutoJoinBtn.Text = "⏹ STOP AUTO JOINER"
-    
-    while autoJoinerRunning and autoJoinerActive do
-        local found, name = CheckForTargets()
-        
-        if found then
-            AddLog("🎉 Target found! Staying in server: " .. name)
-            StatusLabel.Text = "Status: STAYING - " .. name
-            task.wait(30)
-        else
-            AddLog("🔍 No targets found. Hopping to new server...")
-            ServerHop()
-            task.wait(Config.ServerHopDelay)
-        end
-        
-        task.wait(Config.ScanInterval)
-    end
-end
-
-local function StopAutoJoiner()
-    autoJoinerRunning = false
-    AddLog("🛑 Auto Joiner stopped")
-    StatusLabel.Text = "Status: Idle"
-    AutoJoinBtn.BackgroundColor3 = Colors.Primary
-    AutoJoinBtn.Text = "▶ START AUTO JOINER"
-end
-
-AutoJoinBtn.MouseButton1Click:Connect(function()
-    autoJoinerActive = not autoJoinerActive
-    Config.AutoJoinEnabled = autoJoinerActive
-    
-    if autoJoinerActive then
-        local selectedCount = 0
-        for _ in pairs(Config.TargetBrainrots) do selectedCount = selectedCount + 1 end
-        if selectedCount == 0 then
-            AddLog("⚠ Please select at least one brainrot target!", true)
-            autoJoinerActive = false
-            return
-        end
-        if not SyncInt._data then
-            AddLog("⚠ Waiting for Synchronizer to load...", true)
-        end
-        StartAutoJoiner()
-    else
-        StopAutoJoiner()
-    end
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    StopAutoJoiner()
-    ScreenGui:Destroy()
-end)
-
-local minimized = false
-MinBtn.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 450, 0, 45)}):Play()
-        SettingsPage.Visible = false
-        BrainrotPage.Visible = false
-        TabBar.Visible = false
-        MinBtn.Text = "+"
-    else
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 450, 0, 600)}):Play()
-        TabBar.Visible = true
-        if Config.CurrentPage == 1 then
-            SettingsPage.Visible = true
-        else
-            BrainrotPage.Visible = true
-        end
-        MinBtn.Text = "−"
-    end
-end)
-
-ValueSlider.MouseButton1Click:Connect(function()
-    local value = tonumber(string.gsub(game:GetService("GuiService"):GetTextDialog("Minimum Value", "Enter minimum value (millions):", "1"), "%D", ""))
-    if value and value > 0 then
-        Config.MinValue = value * 1000000
-        ValueLabel.Text = "💰 Minimum Value: " .. value .. "M"
-        AddLog("Min value set to " .. value .. "M", false)
-    end
-end)
-
-SetWebhookBtn.MouseButton1Click:Connect(function()
-    local url = game:GetService("GuiService"):GetTextDialog("Discord Webhook", "Enter webhook URL:", "")
-    if url and url ~= "" then
-        Config.WebhookUrl = url
-        WebhookStatus.Text = "📡 Discord Webhook: Set ✓"
-        AddLog("Discord webhook configured", false)
+        task.wait(POLL_INTERVAL)
     end
 end)
 
 -- ============================================
--- INITIALIZATION
+-- DRAG & TOGGLE
 -- ============================================
-task.spawn(function()
-    AddLog("🥭 CocoX Auto Join Private Loading...")
-    
-    -- Load Synchronizer
-    for i = 1, 10 do
-        SyncInt._data = getInternalTable()
-        if SyncInt._data then break end
-        task.wait(1)
+local dragging, dragStart, startPos = false, nil, nil
+
+TitleBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true; dragStart = i.Position; startPos = MainFrame.Position
     end
-    
-    if SyncInt._data then
-        AddLog("✅ Synchronizer loaded", false)
-    else
-        AddLog("⚠ Synchronizer failed to load", true)
-    end
-    
-    -- Load game modules
-    if Datas and Shared then
-        for i = 1, 10 do
-            local s1, d = pcall(require, Datas:FindFirstChild("Animals"))
-            local s2, sh = pcall(require, Shared:FindFirstChild("Animals"))
-            if s1 and d then AnimalsData = d end
-            if s2 and sh then AnimalsShared = sh end
-            if AnimalsData and AnimalsShared then break end
-            task.wait(0.5)
-        end
-    end
-    
-    if AnimalsData and AnimalsShared then
-        AddLog("✅ Game modules loaded - " .. #AllBrainrots .. " brainrots available", false)
-    else
-        AddLog("⚠ Game modules failed to load", true)
-    end
-    
-    AddLog("📋 Go to BRAINROT LIST tab to select targets")
-    AddLog("⚙ Select brainrots and click START to begin")
 end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + d.X,
+            startPos.Y.Scale, startPos.Y.Offset + d.Y
+        )
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+
+local guiVisible = true
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.KeyCode == Enum.KeyCode.E then
+        guiVisible = not guiVisible
+        MainFrame.Visible = guiVisible
+    end
+end)
+
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- ============================================
+-- INITIALIZATION - LOAD SAVED FILTERS
+-- ============================================
+print("")
+print("========================================")
+print("🥭 COCOX BRAINROT RECEIVER V3.6")
+print("========================================")
+print("📡 API: " .. API_URL)
+print("💾 Save file: " .. SAVE_FILE)
+print("📁 Location: " .. GetWorkspacePath())
+print("========================================")
+print("")
+print("[CocoX] Total brainrots: " .. #AllBrainrots)
+print("[CocoX] Press E to toggle GUI")
+print("[CocoX] Use FILTER tab to select brainrots")
+print("[CocoX] Click 💾 SAVE to save your selection")
+print("[CocoX] Click 📂 LOAD to load saved selection")
+print("")
+
+-- Load saved filters
+LoadFilters()
+
+-- Update UI after loading
+task.wait(0.5)
+for name, selected in pairs(SelectedFilters) do
+    local ref = CheckboxReferences[name]
+    if ref then
+        ref.checkbox.Text = "☑"
+        ref.checkbox.BackgroundColor3 = Colors.Primary
+        ref.checkbox.BackgroundTransparency = 0
+        ref.label.TextColor3 = Colors.PrimaryLight
+    end
+end
+
+local count = 0
+for _ in pairs(SelectedFilters) do count = count + 1 end
+if count == 0 then
+    ShowAll = true
+    FilterIndicator.Text = "🎯 Filter: ALL"
+else
+    ShowAll = false
+    FilterIndicator.Text = "🎯 Filter: " .. count .. " selected"
+end
+
+print("[CocoX] ✅ Ready! " .. (count > 0 and "Loaded " .. count .. " filters" or "No filters saved"))
