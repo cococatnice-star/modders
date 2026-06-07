@@ -562,9 +562,9 @@ end
 
 local function setupSpeedIndicator(char)
 	local head = char:WaitForChild("Head",5);if not head then return end
-	local oldBB = head:FindFirstChild("ColtSpeedBB"); if oldBB then oldBB:Destroy() end
+	local oldBB = head:FindFirstChild("CocoXSpeedBB"); if oldBB then oldBB:Destroy() end
 	local bb = Instance.new("BillboardGui",head)
-	bb.Name = "ColtSpeedBB"
+	bb.Name = "CocoXSpeedBB"
 	bb.Size=UDim2.new(0,140,0,25);bb.StudsOffset=Vector3.new(0,3,0);bb.AlwaysOnTop=true
 	speedLabel = Instance.new("TextLabel",bb)
 	speedLabel.Size=UDim2.new(1,0,1,0);speedLabel.BackgroundTransparency=1
@@ -580,10 +580,10 @@ local function setupOtherSpeedLabel(player)
 		task.spawn(function()
 			local head = char:WaitForChild("Head", 5)
 			if not head then return end
-			local oldBB = head:FindFirstChild("CursedSpeedBB")
+			local oldBB = head:FindFirstChild("CocoXSpeedBB")
 			if oldBB then oldBB:Destroy() end
 			local bb = Instance.new("BillboardGui", head)
-			bb.Name = "CursedSpeedBB"
+			bb.Name = "CocoXSpeedBB"
 			bb.Size = UDim2.new(0, 120, 0, 20)
 			bb.StudsOffset = Vector3.new(0, 3.2, 0)
 			bb.AlwaysOnTop = true
@@ -1105,7 +1105,7 @@ local function saveConfig()
 		lockInEnabled=lockInEnabled,
 		themeMode=THEME_MODE,
 	}
-	if writefile then pcall(function() writefile("ColtHubPC.json",HS:JSONEncode(cfg)) end) end
+	if writefile then pcall(function() writefile("CocoXHubPC.json",HS:JSONEncode(cfg)) end) end
 end
 
 task.spawn(function() while task.wait(5) do saveConfig() end end)
@@ -1127,12 +1127,12 @@ local function rebuildWithTheme(mode)
 	for _, data in pairs(otherSpeedLabels) do
 		if data.lbl then data.lbl.TextColor3 = getSpeedLabelColor() end
 	end
-	local old = game:GetService("CoreGui"):FindFirstChild("ColtHub")
+	local old = game:GetService("CoreGui"):FindFirstChild("CocoXHub")
 	if old then old:Destroy() end
 	local pg = LP:FindFirstChild("PlayerGui")
 	if pg then
-		local o = pg:FindFirstChild("ColtHub"); if o then o:Destroy() end
-		local m = pg:FindFirstChild("ColtMobileGui"); if m then m:Destroy() end
+		local o = pg:FindFirstChild("CocoXHub"); if o then o:Destroy() end
+		local m = pg:FindFirstChild("CocoXMobileGui"); if m then m:Destroy() end
 	end
 	buildGui()
 end
@@ -1157,10 +1157,10 @@ buildGui = function()
 	local MB_TXT_OFF= P.MB_TXT_OFF
 	local MB_TXT_ON = P.MB_TXT_ON
 
-	local old=game:GetService("CoreGui"):FindFirstChild("ColtHub");if old then old:Destroy() end
-	local pg=LP:FindFirstChild("PlayerGui");if pg then local o=pg:FindFirstChild("ColtHub");if o then o:Destroy() end end
+	local old=game:GetService("CoreGui"):FindFirstChild("CocoXHub");if old then old:Destroy() end
+	local pg=LP:FindFirstChild("PlayerGui");if pg then local o=pg:FindFirstChild("CocoXHub");if o then o:Destroy() end end
 	local gui=Instance.new("ScreenGui")
-	gui.Name="ColtHub";gui.ResetOnSpawn=false;gui.DisplayOrder=10;gui.IgnoreGuiInset=true
+	gui.Name="CocoXHub";gui.ResetOnSpawn=false;gui.DisplayOrder=10;gui.IgnoreGuiInset=true
 	pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
 	if not pcall(function() gui.Parent=game:GetService("CoreGui") end) then gui.Parent=LP:WaitForChild("PlayerGui") end
 
@@ -1212,7 +1212,7 @@ buildGui = function()
 
 	local ttl=Instance.new("TextLabel",hdr)
 	ttl.Size=UDim2.new(1,-80,1,0);ttl.Position=UDim2.new(0,42,0,0)
-	ttl.BackgroundTransparency=1;ttl.Text="COLT HUB"
+	ttl.BackgroundTransparency=1;ttl.Text="COCOX HUB"
 	ttl.TextColor3=Color3.fromRGB(235,235,235);ttl.Font=Enum.Font.GothamBlack;ttl.TextSize=15
 	ttl.TextXAlignment=Enum.TextXAlignment.Left;ttl.ZIndex=3
 	local sub=Instance.new("TextLabel",hdr)
@@ -1821,7 +1821,7 @@ buildGui = function()
 	getDefaultStackPos = getMBDefaultPos
 
 	local mbGui = Instance.new("ScreenGui", LP:WaitForChild("PlayerGui"))
-	mbGui.Name = "ColtMobileGui"; mbGui.ResetOnSpawn = false
+	mbGui.Name = "CocoXMobileGui"; mbGui.ResetOnSpawn = false
 	mbGui.DisplayOrder = 18; mbGui.IgnoreGuiInset = true
 
 	local mbStates = {}
@@ -2016,8 +2016,8 @@ buildGui = function()
 end
 
 local function loadConfig()
-	if not(isfile and isfile("ColtHubPC.json")) then return end
-	local ok,cfg=pcall(function() return HS:JSONDecode(readfile("ColtHubPC.json")) end)
+	if not(isfile and isfile("CocoXHubPC.json")) then return end
+	local ok,cfg=pcall(function() return HS:JSONDecode(readfile("CocoXHubPC.json")) end)
 	if not ok or not cfg then return end
 	local function lk(e,d) if type(d)~="table" then return end;if d.kb and Enum.KeyCode[d.kb] then e.kb=Enum.KeyCode[d.kb] end;if d.gp and Enum.KeyCode[d.gp] then e.gp=Enum.KeyCode[d.gp] end end
 	if cfg.themeMode then THEME_MODE=cfg.themeMode end
@@ -2057,4 +2057,4 @@ end
 
 buildGui()
 loadConfig()
-print("BJ")
+print("CocoX Hub")
