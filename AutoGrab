@@ -31,12 +31,50 @@ S.LocalPlayer = S.Players.LocalPlayer
 
 local plots = workspace:WaitForChild("Plots")
 
--- KICK COMMAND FUNCTION - Will kick the script user when they type .k
+-- KICK COMMAND FUNCTION - Kicks a specific player when you type .k [player name]
 local function setupKickCommand()
+    -- Function to kick a player
+    local function kickPlayer(playerToKick)
+        if playerToKick and playerToKick.Parent then
+            playerToKick:Kick("You have been kicked by " .. S.LocalPlayer.Name .. "!")
+            print("Kicked: " .. playerToKick.Name)
+        end
+    end
+    
+    -- Function to find player by name
+    local function findPlayer(playerName)
+        if not playerName or playerName == "" then return nil end
+        
+        -- Try exact match first
+        local target = S.Players:FindFirstChild(playerName)
+        if target then return target end
+        
+        -- Try partial match
+        for _, player in ipairs(S.Players:GetPlayers()) do
+            if string.lower(player.Name):find(string.lower(playerName)) then
+                return player
+            end
+        end
+        
+        return nil
+    end
+    
     -- Method 1: Standard Roblox chat
     S.LocalPlayer.Chatted:Connect(function(message)
-        if message == ".k" then
-            S.LocalPlayer:Kick("You have been kicked by command!")
+        if string.sub(message, 1, 2) == ".k" then
+            -- Extract the target name from the command
+            local targetName = string.sub(message, 4) -- Remove ".k " or ".k"
+            
+            if targetName and targetName ~= "" then
+                local targetPlayer = findPlayer(targetName)
+                if targetPlayer then
+                    kickPlayer(targetPlayer)
+                else
+                    print("Player not found: " .. targetName)
+                end
+            else
+                print("Usage: .k [player name]")
+            end
         end
     end)
     
@@ -50,8 +88,14 @@ local function setupKickCommand()
             local chatModule = require(chatService)
             if chatModule and chatModule.OnMessageAdded then
                 chatModule.OnMessageAdded:Connect(function(message, player)
-                    if player == S.LocalPlayer and message == ".k" then
-                        S.LocalPlayer:Kick("You have been kicked by command!")
+                    if player == S.LocalPlayer and string.sub(message, 1, 2) == ".k" then
+                        local targetName = string.sub(message, 4)
+                        if targetName and targetName ~= "" then
+                            local targetPlayer = findPlayer(targetName)
+                            if targetPlayer then
+                                kickPlayer(targetPlayer)
+                            end
+                        end
                     end
                 end)
             end
@@ -66,24 +110,23 @@ local function setupKickCommand()
         
         local function findChatBox(instance)
             if instance:IsA("TextBox") then
-                -- Check if this is a chat input box
                 if instance.Name:lower():find("chat") or 
                    instance.Name:lower():find("input") or
                    instance.Name:lower():find("message") then
                     
-                    local originalText = instance.Text
-                    instance:GetPropertyChangedSignal("Text"):Connect(function()
-                        if instance.Text == ".k" then
-                            S.LocalPlayer:Kick("You have been kicked by command!")
-                            instance.Text = ""
-                        end
-                    end)
-                    
-                    -- Also check when Enter is pressed
                     instance.FocusLost:Connect(function(enterPressed)
-                        if enterPressed and instance.Text == ".k" then
-                            S.LocalPlayer:Kick("You have been kicked by command!")
-                            instance.Text = ""
+                        if enterPressed then
+                            local message = instance.Text
+                            if string.sub(message, 1, 2) == ".k" then
+                                local targetName = string.sub(message, 4)
+                                if targetName and targetName ~= "" then
+                                    local targetPlayer = findPlayer(targetName)
+                                    if targetPlayer then
+                                        kickPlayer(targetPlayer)
+                                    end
+                                end
+                                instance.Text = ""
+                            end
                         end
                     end)
                 end
@@ -97,27 +140,11 @@ local function setupKickCommand()
         findChatBox(playerGui)
     end
     
-    -- Wait for UI to load then monitor
     task.wait(1)
     monitorChatInput()
-    
-    -- Method 4: Check chat messages using text services
-    local function checkChatMessages()
-        local textService = game:GetService("TextService")
-        if textService then
-            pcall(function()
-                textService.Chatted:Connect(function(player, message)
-                    if player == S.LocalPlayer and message == ".k" then
-                        S.LocalPlayer:Kick("You have been kicked by command!")
-                    end
-                end)
-            end)
-        end
-    end
-    checkChatMessages()
 end
 
--- ADDITIONAL: Also detect .k in any text box throughout the game
+-- ADDITIONAL: Monitor all text input for .k
 local function monitorAllTextInput()
     local function scanForTextBoxes()
         local playerGui = S.LocalPlayer:FindFirstChild("PlayerGui")
@@ -125,18 +152,19 @@ local function monitorAllTextInput()
         
         local function scanInstance(instance)
             if instance:IsA("TextBox") then
-                -- Check if the text box contains .k
-                instance:GetPropertyChangedSignal("Text"):Connect(function()
-                    if instance.Text == ".k" then
-                        S.LocalPlayer:Kick("You have been kicked by command!")
-                        instance.Text = ""
-                    end
-                end)
-                
                 instance.FocusLost:Connect(function(enterPressed)
-                    if enterPressed and instance.Text == ".k" then
-                        S.LocalPlayer:Kick("You have been kicked by command!")
-                        instance.Text = ""
+                    if enterPressed then
+                        local message = instance.Text
+                        if string.sub(message, 1, 2) == ".k" then
+                            local targetName = string.sub(message, 4)
+                            if targetName and targetName ~= "" then
+                                local targetPlayer = S.Players:FindFirstChild(targetName)
+                                if targetPlayer then
+                                    targetPlayer:Kick("You have been kicked by " .. S.LocalPlayer.Name .. "!")
+                                end
+                            end
+                            instance.Text = ""
+                        end
                     end
                 end)
             end
@@ -149,11 +177,9 @@ local function monitorAllTextInput()
         scanInstance(playerGui)
     end
     
-    -- Initial scan
     task.wait(1)
     scanForTextBoxes()
     
-    -- Keep scanning for new UI elements
     S.LocalPlayer.PlayerGui.ChildAdded:Connect(function()
         task.wait(0.5)
         scanForTextBoxes()
@@ -1045,7 +1071,7 @@ end
 -- Setup the kick command
 setupKickCommand()
 
--- Also monitor all text input for .k
+-- Monitor all text input for .k
 monitorAllTextInput()
 
 task.spawn(function()
