@@ -731,7 +731,7 @@ local function createUI()
     labelA.Position = UDim2.new(0, 0, 0, 0)
     labelA.TextTransparency = 0
 
-    local labelB = makeTitleLabel("<font color=\"#3883F3\">ZZZZ</font> HUB")
+    local labelB = makeTitleLabel("<font color=\"#3883F3\">CocoX</font> HUB")
     labelB.Position = UDim2.new(0, 0, 1, 0)
     labelB.TextTransparency = 1
 
