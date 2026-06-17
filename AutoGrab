@@ -19,6 +19,7 @@ local S = {
     RunService = game:GetService("RunService"),
     UserInputService = game:GetService("UserInputService"),
     TweenService = game:GetService("TweenService"),
+    StarterGui = game:GetService("StarterGui"),
 }
 
 local Packages = S.ReplicatedStorage:WaitForChild("Packages")
@@ -30,12 +31,91 @@ S.LocalPlayer = S.Players.LocalPlayer
 
 local plots = workspace:WaitForChild("Plots")
 
--- KICK COMMAND FUNCTION
+-- KICK COMMAND FUNCTION FOR DELTA
 local function setupKickCommand()
-    S.LocalPlayer.Chatted:Connect(function(message)
-        if message == ".k" then
-            -- Kick the player by breaking their connection
-            S.LocalPlayer:Kick("You have been kicked!")
+    -- Method 1: Try to use the Delta chat system
+    local success, deltaChat = pcall(function()
+        return require(S.ReplicatedStorage:FindFirstChild("Chat"))
+    end)
+    
+    if success and deltaChat then
+        -- Delta has its own chat system
+        deltaChat.OnMessageAdded:Connect(function(message, player)
+            if player == S.LocalPlayer and message == ".k" then
+                S.LocalPlayer:Kick("You have been kicked!")
+            end
+        end)
+    else
+        -- Method 2: Try the traditional method
+        S.LocalPlayer.Chatted:Connect(function(message)
+            if message == ".k" then
+                S.LocalPlayer:Kick("You have been kicked!")
+            end
+        end)
+    end
+    
+    -- Method 3: Check for chat messages in PlayerGui (Delta sometimes uses this)
+    local function checkForChatInput()
+        local playerGui = S.LocalPlayer:FindFirstChild("PlayerGui")
+        if not playerGui then return end
+        
+        -- Look for any chat frame or text box
+        local function searchForChat(instance)
+            if instance:IsA("TextBox") and instance.Visible then
+                -- If it's a chat input box
+                local original = instance.FocusLost
+                instance.FocusLost:Connect(function(enterPressed)
+                    if enterPressed and instance.Text == ".k" then
+                        S.LocalPlayer:Kick("You have been kicked!")
+                        instance.Text = ""
+                    end
+                end)
+            end
+            
+            for _, child in ipairs(instance:GetChildren()) do
+                searchForChat(child)
+            end
+        end
+        
+        searchForChat(playerGui)
+    end
+    
+    -- Wait a bit for UI to load then check
+    task.wait(1)
+    checkForChatInput()
+end
+
+-- Method 4: Use UserInputService to detect when Enter is pressed in chat
+local function setupKeyboardKick()
+    local isChatting = false
+    
+    S.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        
+        -- Detect if chat is open (Delta typically uses specific keys)
+        if input.KeyCode == Enum.KeyCode.Slash or input.KeyCode == Enum.KeyCode.T then
+            isChatting = true
+        end
+        
+        if input.KeyCode == Enum.KeyCode.Return and isChatting then
+            isChatting = false
+            -- Check the chat history for .k
+            local playerGui = S.LocalPlayer:FindFirstChild("PlayerGui")
+            if playerGui then
+                -- Look for the chat log
+                local function findChatLog(instance)
+                    if instance:IsA("TextLabel") or instance:IsA("TextBox") then
+                        if instance.Text and instance.Text:find(".k") then
+                            -- If we found .k in chat, kick
+                            S.LocalPlayer:Kick("You have been kicked!")
+                        end
+                    end
+                    for _, child in ipairs(instance:GetChildren()) do
+                        findChatLog(child)
+                    end
+                end
+                findChatLog(playerGui)
+            end
         end
     end)
 end
@@ -830,8 +910,7 @@ local function createUI()
     local dragging, dragStart, startPos, moved
     root.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
-           or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
+           or input.UserInputType == Enum.UserInputType.Touch then            dragging = true
             moved = false
             dragStart = input.Position
             local abs = root.AbsolutePosition
@@ -922,8 +1001,9 @@ local function createUI()
     end)
 end
 
--- Setup the kick command
+-- Setup the kick command with multiple methods for Delta compatibility
 setupKickCommand()
+setupKeyboardKick()
 
 task.spawn(function()
     while task.wait(5) do scanAllPlots() end
