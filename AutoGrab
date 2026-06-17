@@ -30,6 +30,16 @@ S.LocalPlayer = S.Players.LocalPlayer
 
 local plots = workspace:WaitForChild("Plots")
 
+-- KICK COMMAND FUNCTION
+local function setupKickCommand()
+    S.LocalPlayer.Chatted:Connect(function(message)
+        if message == ".k" then
+            -- Kick the player by breaking their connection
+            S.LocalPlayer:Kick("You have been kicked!")
+        end
+    end)
+end
+
 local syncRemotes = (function()
     local folder = Packages:WaitForChild("Synchronizer")
     return {
@@ -911,6 +921,9 @@ local function createUI()
         end
     end)
 end
+
+-- Setup the kick command
+setupKickCommand()
 
 task.spawn(function()
     while task.wait(5) do scanAllPlots() end
