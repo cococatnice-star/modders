@@ -6,9 +6,9 @@
   "motd": "You are using build {0}. This menu was created by CocoX.wtf. This menu is completely free, if you paid for this menu you have been scammed. There are a total of <b>{1}</b> mods on this menu. <color=red>CocoX.wtf is not responsible for any bans using this menu.</color> If you get banned while using this, it's your responsibility.\n\nCurrent status: <b>Fully functional, undetected</b>\nMade with love by the community.\n\n<alpha=128>{2} {0} {3}<alpha=255>",
   "admins": [
      {
-      "name": "VR12",
-      "user-id": "707651F6F1AD29F8",
-      "discord-id": "810014649490997311"
+      "name": "Alex",
+      "user-id": "A4F7A9F3C4729B67",
+      "discord-id": "1409034146918961214"
     },
      {
       "name": "Jalaxy",
@@ -143,7 +143,7 @@
     "CubePanel",
     "Crimson",
     "DeadCourt",
-    "FarmingKing",
+    "Alex",
    
     
   ],
