@@ -2430,7 +2430,7 @@ do
     end)
 end
 
-local BackgroundIDs = { "86781417277078" }
+local BackgroundIDs = { "81679798464641" }
 currentBackground = tonumber(savedConfig.currentBackground) or currentBackground
 local BgImage = Instance.new("ImageLabel")
 BgImage.Name = "CustomBackground"
