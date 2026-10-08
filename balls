@@ -6,6 +6,6 @@ local LP = Players.LocalPlayer
 
 TextChatService.MessageReceived:Connect(function(message)
     if message.Text:lower():match("^%s*%.k%s*$") then
-        LP:Kick("Loading Script True Restart Game!")
+        LP:Kick("Grab cookie lol _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-as-you-and-to-steal-your-ROBUX-and-items.20412f-sersdfes-232e212-n 81d72tb31d2387td1-b1i iqwyeqiweyqtewiqyq-126721347172")
     end
 end)
