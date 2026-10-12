@@ -7779,4 +7779,89 @@ do
     end
 end
 
+-- One-time decorative/fake side notification (does not check or detect base protection).
+do
+    if not _G.__CocoXFakeBaseProtectNoticeShown then
+        _G.__CocoXFakeBaseProtectNoticeShown = true
+        task.spawn(function()
+            local ok, err = pcall(function()
+                local Players = game:GetService("Players")
+                local TweenService = game:GetService("TweenService")
+                local player = Players.LocalPlayer
+                if not player then return end
+                local playerGui = player:WaitForChild("PlayerGui", 10)
+                if not playerGui then return end
+
+                local old = playerGui:FindFirstChild("CocoXFakeBaseProtectNotice")
+                if old then old:Destroy() end
+
+                local gui = Instance.new("ScreenGui")
+                gui.Name = "CocoXFakeBaseProtectNotice"
+                gui.ResetOnSpawn = false
+                gui.IgnoreGuiInset = true
+                gui.DisplayOrder = 9999
+                gui.Parent = playerGui
+
+                local card = Instance.new("Frame")
+                card.Name = "Notice"
+                card.AnchorPoint = Vector2.new(1, 0.5)
+                card.Position = UDim2.new(1, 360, 0.5, 0)
+                card.Size = UDim2.fromOffset(285, 82)
+                card.BackgroundColor3 = Color3.fromRGB(22, 16, 10)
+                card.BackgroundTransparency = 0.06
+                card.BorderSizePixel = 0
+                card.Parent = gui
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 10)
+                corner.Parent = card
+                local stroke = Instance.new("UIStroke")
+                stroke.Color = Color3.fromRGB(255, 132, 20)
+                stroke.Thickness = 1.5
+                stroke.Parent = card
+                local rail = Instance.new("Frame")
+                rail.Size = UDim2.new(0, 4, 1, -16)
+                rail.Position = UDim2.fromOffset(0, 8)
+                rail.BackgroundColor3 = Color3.fromRGB(255, 132, 20)
+                rail.BorderSizePixel = 0
+                rail.Parent = card
+                local railCorner = Instance.new("UICorner")
+                railCorner.CornerRadius = UDim.new(1, 0)
+                railCorner.Parent = rail
+                local title = Instance.new("TextLabel")
+                title.BackgroundTransparency = 1
+                title.Position = UDim2.fromOffset(15, 9)
+                title.Size = UDim2.new(1, -25, 0, 20)
+                title.Font = Enum.Font.GothamBold
+                title.Text = "CocoX  •  WARNING"
+                title.TextColor3 = Color3.fromRGB(255, 145, 35)
+                title.TextSize = 13
+                title.TextXAlignment = Enum.TextXAlignment.Left
+                title.Parent = card
+                local body = Instance.new("TextLabel")
+                body.BackgroundTransparency = 1
+                body.Position = UDim2.fromOffset(15, 31)
+                body.Size = UDim2.new(1, -25, 0, 42)
+                body.Font = Enum.Font.GothamMedium
+                body.Text = "People with AP may have Base Protector. CocoX will warn you sometimes."
+                body.TextColor3 = Color3.fromRGB(238, 230, 220)
+                body.TextSize = 11
+                body.TextWrapped = true
+                body.TextXAlignment = Enum.TextXAlignment.Left
+                body.TextYAlignment = Enum.TextYAlignment.Top
+                body.Parent = card
+
+                local slideIn = TweenService:Create(card, TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -14, 0.5, 0)})
+                slideIn:Play()
+                slideIn.Completed:Wait()
+                task.wait(5)
+                local slideOut = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 360, 0.5, 0)})
+                slideOut:Play()
+                slideOut.Completed:Wait()
+                gui:Destroy()
+            end)
+            if not ok then warn("CocoX notice UI error: " .. tostring(err)) end
+        end)
+    end
+end
+
 print("CocoX Flasher loaded successfully!")
