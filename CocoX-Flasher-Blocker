@@ -2402,31 +2402,32 @@ local oldB=PlayerGui:FindFirstChild("CocoXFlasherBanner") or PlayerGui:FindFirst
 if oldB then oldB:Destroy() end
 
 local C={
-accent=Color3.fromRGB(255,140,0),
-accentHi=Color3.fromRGB(255,180,60),
-deepRed=Color3.fromRGB(48,25,8),
-body=Color3.fromRGB(18,12,8),
-panel=Color3.fromRGB(28,18,10),
-tabBar=Color3.fromRGB(24,16,9),
-card=Color3.fromRGB(40,24,12),
-iconBg=Color3.fromRGB(52,31,12),
-stroke=Color3.fromRGB(120,68,22),
-strokeDim=Color3.fromRGB(78,45,16),
-textBright=Color3.fromRGB(255,238,218),
-textRed=Color3.fromRGB(255,165,55),
-textMute=Color3.fromRGB(195,130,72),
-textDim=Color3.fromRGB(150,95,42),
-knobOn=Color3.fromRGB(255,232,195),
-knobOff=Color3.fromRGB(112,75,40),
-trackOff=Color3.fromRGB(50,32,14)
+-- Orange-and-black theme; controls use readable text rather than decorative image buttons.
+accent=Color3.fromRGB(255,132,0),
+accentHi=Color3.fromRGB(255,190,70),
+deepRed=Color3.fromRGB(62,27,7),
+body=Color3.fromRGB(18,11,5),
+panel=Color3.fromRGB(29,18,9),
+tabBar=Color3.fromRGB(23,14,6),
+card=Color3.fromRGB(48,29,13),
+iconBg=Color3.fromRGB(66,38,14),
+stroke=Color3.fromRGB(135,73,20),
+strokeDim=Color3.fromRGB(83,47,16),
+textBright=Color3.fromRGB(255,247,235),
+textRed=Color3.fromRGB(255,155,35),
+textMute=Color3.fromRGB(225,178,125),
+textDim=Color3.fromRGB(165,119,75),
+knobOn=Color3.fromRGB(255,248,235),
+knobOff=Color3.fromRGB(130,91,54),
+trackOff=Color3.fromRGB(54,34,16)
 }
 
 local borderGradientSeq=ColorSequence.new({
-ColorSequenceKeypoint.new(0,C.accentHi),
+ColorSequenceKeypoint.new(0,C.accent),
 ColorSequenceKeypoint.new(0.25,C.deepRed),
-ColorSequenceKeypoint.new(0.5,C.accent),
+ColorSequenceKeypoint.new(0.5,C.accentHi),
 ColorSequenceKeypoint.new(0.75,C.deepRed),
-ColorSequenceKeypoint.new(1,C.accentHi)
+ColorSequenceKeypoint.new(1,C.accent)
 })
 
 local function getDevice()
@@ -2443,9 +2444,9 @@ end
 local DEVICE=getDevice()
 -- Barra compacta: solo header + FLASH/BLOCK/RESET (Settings=B, Brainrots=S en floats)
 local LAYOUT={
-pc={winW=230,winH=100,posX=UDim2.new(0.5,0,0.5,0),bannerW=190,bannerH=52,bannerPos=UDim2.new(0.5,-95,0,6),btnSize=68,btnH=28,tabH=28,headerH=34,actionXs={6,80,154},textSize={header=10,btn=11,tab=11}},
-ipad={winW=210,winH=94,posX=UDim2.new(0.5,0,0.5,0),bannerW=170,bannerH=48,bannerPos=UDim2.new(0.5,-85,0,6),btnSize=62,btnH=26,tabH=26,headerH=32,actionXs={5,72,139},textSize={header=10,btn=10,tab=10}},
-mobile={winW=185,winH=88,posX=UDim2.new(0.5,0,0.5,0),bannerW=155,bannerH=46,bannerPos=UDim2.new(0.5,-78,0,4),btnSize=54,btnH=24,tabH=24,headerH=28,actionXs={4,64,124},textSize={header=9,btn=9,tab=9}}
+pc={winW=244,winH=98,posX=UDim2.new(0.5,0,0.5,0),bannerW=220,bannerH=42,bannerPos=UDim2.new(0.5,-110,0,6),btnSize=70,btnH=28,tabH=24,headerH=28,actionXs={6,87,168},textSize={header=10,btn=10,tab=10}},
+ipad={winW=230,winH=94,posX=UDim2.new(0.5,0,0.5,0),bannerW=210,bannerH=40,bannerPos=UDim2.new(0.5,-105,0,6),btnSize=66,btnH=27,tabH=23,headerH=27,actionXs={5,82,159},textSize={header=10,btn=9,tab=9}},
+mobile={winW=218,winH=88,posX=UDim2.new(0.5,0,0.5,0),bannerW=195,bannerH=38,bannerPos=UDim2.new(0.5,-97,0,4),btnSize=62,btnH=25,tabH=22,headerH=25,actionXs={4,77,150},textSize={header=9,btn=9,tab=9}}
 }
 local L=LAYOUT[DEVICE]
 
@@ -2493,7 +2494,7 @@ BorderFrame.Selectable=false
 BorderFrame.Parent=COCOX_FLASHER_GUI
 
 local BorderCorner=Instance.new("UICorner")
-BorderCorner.CornerRadius=UDim.new(0,11)
+BorderCorner.CornerRadius=UDim.new(0,16)
 BorderCorner.Parent=BorderFrame
 
 local UIGradient=Instance.new("UIGradient")
@@ -2529,9 +2530,24 @@ Frame.ClipsDescendants=true
 Frame.Active=false
 Frame.Selectable=false
 Frame.Parent=Win
-Instance.new("UICorner",Frame).CornerRadius=UDim.new(0,11)
+Instance.new("UICorner",Frame).CornerRadius=UDim.new(0,14)
 
--- Clean orange/black panel background (decorative image removed)
+-- Orange accent rail along the left edge.
+local NebulaRail=Instance.new("Frame")
+NebulaRail.Name="NebulaRail"
+NebulaRail.Size=UDim2.new(0,3,1,-26)
+NebulaRail.Position=UDim2.new(0,0,0,13)
+NebulaRail.BackgroundColor3=C.accent
+NebulaRail.BorderSizePixel=0
+NebulaRail.ZIndex=4
+NebulaRail.Parent=Frame
+Instance.new("UICorner",NebulaRail).CornerRadius=UDim.new(0,2)
+local NebulaRailGradient=Instance.new("UIGradient")
+NebulaRailGradient.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,C.accentHi),ColorSequenceKeypoint.new(1,C.accent)})
+NebulaRailGradient.Rotation=90
+NebulaRailGradient.Parent=NebulaRail
+
+-- Dark background with orange highlights.
 
 local Frame2=Instance.new("Frame")
 Frame2.Name="Frame"
@@ -2574,7 +2590,7 @@ Frame5.Parent=Frame3
 Instance.new("UICorner",Frame5).CornerRadius=UDim.new(0,3)
 
 local TextLabel=Instance.new("TextLabel")
-TextLabel.Size=UDim2.new(1,-130,1,0)
+TextLabel.Size=UDim2.new(1,-126,1,0)
 TextLabel.Position=UDim2.new(0,16,0,0)
 TextLabel.BackgroundTransparency=1
 TextLabel.ZIndex=5
@@ -2586,7 +2602,7 @@ TextLabel.TextXAlignment=Enum.TextXAlignment.Left
 TextLabel.TextTruncate=Enum.TextTruncate.AtEnd
 TextLabel.Parent=Frame3
 
-local HB=DEVICE=="mobile" and 18 or 20
+local HB=DEVICE=="mobile" and 15 or 16
 
 local function headerButton(name,txt,xOff)
 local b=Instance.new("TextButton")
@@ -2602,22 +2618,22 @@ b.TextSize=9
 b.Font=Enum.Font.GothamBold
 b.AutoButtonColor=false
 b.Parent=Frame3
-Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
+Instance.new("UICorner",b).CornerRadius=UDim.new(0,7)
 local s=Instance.new("UIStroke"); s.Color=C.stroke; s.Parent=b
 return b
 end
 
-local hbOff=DEVICE=="mobile" and {-118,-98,-78,-58,-38,-18} or {-130,-108,-86,-64,-42,-20}
+local hbOff=DEVICE=="mobile" and {-100,-82,-64,-46,-28,-10} or {-106,-88,-70,-52,-34,-16}
 local RecoverHdrBtn=headerButton("RecoverR","R",hbOff[1])
 local BrainrotsHdrBtn=headerButton("BrainrotsB","B",hbOff[2])
 local SettingsHdrBtn=headerButton("SettingsS","S",hbOff[3])
-local LockBtn=headerButton("Lock","🔓",hbOff[4])
+local LockBtn=headerButton("Lock","L",hbOff[4])
 local MinBtn=headerButton("Min","–",hbOff[5])
 local CloseBtn=headerButton("Close","X",hbOff[6])
 
 local Frame7=Instance.new("Frame")
-Frame7.Size=UDim2.new(1,0,0,62)
-Frame7.Position=UDim2.new(0,0,0,32)
+Frame7.Size=UDim2.new(1,0,0,55)
+Frame7.Position=UDim2.new(0,0,0,L.headerH)
 Frame7.BackgroundTransparency=1
 Frame7.BorderSizePixel=0
 Frame7.ZIndex=4
@@ -2625,7 +2641,7 @@ Frame7.Parent=Frame
 
 local Frame8=Instance.new("Frame")
 Frame8.Size=UDim2.new(1,0,0,1)
-Frame8.Position=UDim2.new(0,0,0,50)
+Frame8.Position=UDim2.new(0,0,0,44)
 Frame8.BackgroundColor3=C.stroke
 Frame8.BorderSizePixel=0
 Frame8.ZIndex=4
@@ -2642,11 +2658,11 @@ btn.ZIndex=5
 btn.Text=""
 btn.AutoButtonColor=false
 btn.Parent=Frame7
-Instance.new("UICorner",btn).CornerRadius=UDim.new(0,6)
+Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
 local s=Instance.new("UIStroke"); s.Color=C.stroke; s.Parent=btn
 local top=Instance.new("Frame")
-top.Size=UDim2.new(1,-8,0,1.5)
-top.Position=UDim2.new(0,4,0,0)
+top.Size=UDim2.new(1,-18,0,2)
+top.Position=UDim2.new(0,9,0,0)
 top.BackgroundColor3=C.stroke
 top.BorderSizePixel=0
 top.ZIndex=6
@@ -2667,6 +2683,60 @@ end
 local FLASHTP,flashAccent=actionButton("FLASH TP","FLASH",L.actionXs[1],L.btnSize)
 local BLOCK,blockAccent=actionButton("BLOCK","BLOCK",L.actionXs[2],L.btnSize)
 local RESET,resetAccent=actionButton("RESET","RESET",L.actionXs[3],L.btnSize)
+
+-- One-time animated notice: only appears when a different player joins this server.
+local noticeShown = false
+local Notice = Instance.new("Frame")
+Notice.Name = "AutoGrabReadyNotice"
+Notice.AnchorPoint = Vector2.new(0.5, 0.5)
+Notice.Size = UDim2.new(0, L.bannerW, 0, 38)
+Notice.Position = UDim2.new(0.5, 0, 0.5, 70)
+Notice.BackgroundColor3 = C.panel
+Notice.BackgroundTransparency = 0.08
+Notice.BorderSizePixel = 0
+Notice.Visible = false
+Notice.ZIndex = 100
+Notice.Parent = COCOX_FLASHER_GUI
+Instance.new("UICorner", Notice).CornerRadius = UDim.new(0, 9)
+local noticeStroke = Instance.new("UIStroke")
+noticeStroke.Color = C.accent
+noticeStroke.Thickness = 1.5
+noticeStroke.Parent = Notice
+local NoticeText = Instance.new("TextLabel")
+NoticeText.Size = UDim2.new(1, -12, 1, 0)
+NoticeText.Position = UDim2.new(0, 6, 0, 0)
+NoticeText.BackgroundTransparency = 1
+NoticeText.Text = "AUTO GRAB IS READY"
+NoticeText.TextColor3 = C.accentHi
+NoticeText.TextSize = DEVICE == "mobile" and 10 or 12
+NoticeText.Font = Enum.Font.GothamBold
+NoticeText.ZIndex = 101
+NoticeText.Parent = Notice
+local function showAutoGrabNotice()
+    if noticeShown or not COCOX_FLASHER_GUI.Parent then return end
+    noticeShown = true
+    Notice.Visible = true
+    Notice.Position = UDim2.new(0.5, 0, 0.5, 70)
+    Notice.BackgroundTransparency = 0.25
+    TweenService:Create(Notice, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 0.08
+    }):Play()
+    task.wait(2)
+    local out = TweenService:Create(Notice, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = UDim2.new(0.5, 0, 0.5, -70), BackgroundTransparency = 1
+    })
+    out:Play()
+    out.Completed:Wait()
+    Notice.Visible = false
+end
+local joinNoticeConnection
+joinNoticeConnection = Players.PlayerAdded:Connect(function(joiningPlayer)
+    if joiningPlayer ~= LocalPlayer then
+        if joinNoticeConnection then joinNoticeConnection:Disconnect() end
+        task.spawn(showAutoGrabNotice)
+    end
+end)
+table.insert(ActiveConnections, joinNoticeConnection)
 
 local Frame12=Instance.new("Frame")
 Frame12.Size=UDim2.new(1,0,0,L.tabH)
@@ -4018,7 +4088,7 @@ local BDiscord=Instance.new("TextLabel")
 BDiscord.Size=UDim2.new(1,-6,0,12)
 BDiscord.Position=UDim2.new(0,3,0,18)
 BDiscord.BackgroundTransparency=1
-BDiscord.Text='<font color="rgb(255,145,0)">dc:</font> discord.gg/QhffEaSJK'
+BDiscord.Text='<font color="rgb(255,145,0)">dc:</font> cocox.wtf'
 BDiscord.TextColor3=C.textBright
 BDiscord.TextSize=8
 BDiscord.Font=Enum.Font.GothamMedium
@@ -4367,6 +4437,25 @@ pcall(function()
     if g then g:Destroy() end
 end)
 _G.Formega_Script_Purge=nil
+end
+
+-- Add click sounds to all text buttons in the Flasher GUI, even if it is parented to gethui/CoreGui.
+do
+    local function addFlasherClickSound(obj)
+        if not obj:IsA("TextButton") or obj:GetAttribute("CocoXClickSoundAdded") then return end
+        obj:SetAttribute("CocoXClickSoundAdded", true)
+        obj.Activated:Connect(function()
+            local sound = Instance.new("Sound")
+            sound.Name = "CocoXButtonClick"
+            sound.SoundId = "rbxassetid://9118823101"
+            sound.Volume = 0.35
+            sound.Parent = obj
+            sound:Play()
+            game:GetService("Debris"):AddItem(sound, 2)
+        end)
+    end
+    for _, obj in ipairs(COCOX_FLASHER_GUI:GetDescendants()) do addFlasherClickSound(obj) end
+    COCOX_FLASHER_GUI.DescendantAdded:Connect(addFlasherClickSound)
 end
 
 end -- fin __buildCocoXFlasherGUI
