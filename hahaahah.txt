@@ -559,25 +559,10 @@ static void registermods() {
     });
     // Continuous flying mods
 
-    addtick("movement", "trigger lift fly",
-            "hold either trigger to fly up or down",
-            liquidmods::TriggerLiftFly);
-
-    addtick("movement", "hand motion fly",
-            "fly using hand movement and grips",
-            liquidmods::HandMotionFly);
-
-    addtick("movement", "head fly",
-            "hold right grip to fly where you look",
-            liquidmods::HeadFlyTick);
-
-    addtick("movement", "car fly",
-            "hold right trigger to accelerate forward",
-            liquidmods::CarFlyTick);
-
-    addtick("movement", "slingshot fly",
-            "hold right trigger to launch forward",
-            liquidmods::SlingshotFlyTick);
+    addtick("Fly", "Trigger Lift Fly", liquidmods::TriggerLiftFly);
+    addtick("Fly", "Head Fly", liquidmods::HeadFlyTick);
+    addtick("Fly", "Car Fly", liquidmods::CarFlyTick);
+    addtick("Fly", "Slingshot Fly", liquidmods::SlingshotFlyTick);
     addoneshot("movement", "reset movement", "restore speed and arm defaults", []() {
         liquidmods::ResetMovement();
     });
